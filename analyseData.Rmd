@@ -1,0 +1,185 @@
+---
+title: "Untitled"
+output: word_document
+---
+
+
+```{r LoadLibs, echo=FALSE, include=FALSE}
+
+library(xtable)
+library(knitr)
+library(RSQLite)
+library(lubridate)
+library(stringr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library (hydroGOF)
+
+```
+
+
+Load the data
+
+Tidy up factors/levels (note the need to set new label on csv dataset)
+
+Separete in Sedling and regrowth phases
+
+Get data formats right
+
+
+```{r LoadTidyUp, echo=FALSE,include=FALSE}
+
+dataRaw <- read.csv("C:\\GitHubRepos\\LP_analysis\\ObsPre.csv", header = TRUE, skip = 4)
+
+dataWork <- as.data.frame(dataRaw)
+
+dataWork$Date <- dmy_hm(dataRaw$Date)
+
+# create new factors from column label
+dataWork <- dataWork %>%
+  tidyr::gather("ExtraFactors","Predicted",5:112) # FIXME: selected by hand check if valid or make it automated
+
+head(dataWork)
+
+# sort out levels for new fators
+dataWork <- dataWork %>%
+  separate(ExtraFactors,c("SurfaceKl","RootDepth","KLReduction","RootFrontVelocity"),sep = "_", remove=TRUE)
+
+head(dataWork)
+
+dataWork$SurfaceKl <- as.factor(dataWork$SurfaceKl)
+dataWork$RootDepth <- as.factor(dataWork$RootDepth)
+dataWork$KLReduction <- as.factor(dataWork$KLReduction)
+dataWork$RootFrontVelocity <- as.factor(dataWork$RootFrontVelocity)
+
+# separate into seedling and regrowth periods (FIXME: find a more functional criteria later)
+dataWork$Stage <- as.factor(ifelse(dataWork$Date<="2012-06-01 00:00:00","Seedling","Regrowth"))
+
+# re-order fators (ensure Obs is the LAST one)
+dataWork <- dataWork[c("Crop", "Irrigation", "Depth", "Stage","SurfaceKl", "RootDepth", "KLReduction", "RootFrontVelocity", "Date", "Predicted", "Obs")]
+
+head(dataWork)
+
+colnames(dataWork)[ncol(dataWork)] <- "Observed" # Check if right col #
+
+head(dataWork)
+
+# sort out order of levels
+dataWork$SurfaceKl <- factor(dataWork$SurfaceKl, levels = c("Low", "Mid", "Hig"))
+dataWork$Depth <-factor(dataWork$Depth, 
+                        levels = c("D7","D23", "D30", "D50", "D70", "D90","D110", "D130","D150"))
+dataWork$RootDepth <-factor(dataWork$RootDepth, levels = c("500","1000", "2000"))
+dataWork$KLReduction <-factor(dataWork$KLReduction, levels = c(".0.0005",".0.001", ".0.002", ".0.005"))
+dataWork$RootFrontVelocity <-factor(dataWork$RootFrontVelocity, levels = c("5","15", "30"))
+dataWork$Stage <- factor(dataWork$Stage, levels = c("Seedling","Regrowth"))
+
+```
+
+
+Check clean dataset
+
+
+```{r}
+# final product
+str(dataWork)
+
+head(dataWork)
+
+tail(dataWork)
+
+summary(dataWork)
+```
+
+
+
+Create stats function as per Gauch et al paper
+
+```{r CreateStats, echo=FALSE, include=FALSE}
+
+
+gauchStats <- function(sim, meas) {
+  
+  n_s <- length(sim)
+  n_m <- length(meas)
+  model <- lm(meas~sim)
+  sim_sq <- sum((sim - mean(sim))^2)
+  mes_sq <- sum((meas - mean(meas))^2)
+  r2 <- summary(model)$r.squared
+  slope <- model$coefficients[[2]]
+  
+  sb <- (sum(mean(meas)) - sum(mean(sim)))^2
+  nu <- (1-slope)^2 * (sim_sq/n_s)
+  lc <- (1-r2) * (mes_sq/n_m)
+  msd <- sb+nu+lc
+  
+  sb_r <- round((sb/msd)*100,1)
+  nu_r <- round((nu/msd)*100,1)
+  lc_r <- round((lc/msd)*100,1)
+  
+  msd_r <- sb_r+nu_r+lc_r
+  
+  out <- c(sb_r,nu_r,lc_r, msd_r)
+ # out <- c(sb,nu,lc, msd,sim_sq,mes_sq,r2,n_s,n_m,slope ) # testing
+  
+  return(out)
+  
+}
+
+# test dataset
+s <- c(342.5,	68.3,	70.1,	286.1,	333.8)
+m <- c(299.64,	161.36,	201.45,	220.8,	217.67)
+
+gauchStats(s,m)
+
+```
+
+calculate table of statistics
+
+```{r DoStatsAll, echo=FALSE, include=FALSE}
+
+statsTable <- dataWork %>%
+  group_by(Crop, Irrigation, Stage, Depth, SurfaceKl, RootDepth, KLReduction, RootFrontVelocity) %>%
+  summarise(
+    n = n(),
+    r2 = round(br2(Predicted,Observed)*100,0),
+    rmse = round(rmse(Predicted,Observed),3),
+    r_rmse = round(rmse(Predicted,Observed)/mean(Observed)*100,1),
+    nse = round(NSE(Predicted,Observed),1),
+    sb = gauchStats(Predicted,Observed)[1],
+  nu = gauchStats(Predicted,Observed)[2],
+  lc = gauchStats(Predicted,Observed)[3]) %>%
+  tidyr::gather("stats","value",9:16) 
+
+statsTable %>%
+  kable(format = "markdown")
+
+```
+
+```{r CheckStatstable}
+head(statsTable)
+
+statsTable %>%
+  ggplot()+
+ geom_boxplot(aes(x=stats, y=value)) +
+  facet_wrap(~stats, scales="free") 
+
+```
+
+
+```{r GraphAll}
+
+dataWork %>%
+  filter(Irrigation =="None") %>%
+ # group_by(Crop, Irrigation, Depth) %>%
+ # dplyr::select(-Stage, -SurfaceKl,-RootDepth,-KLReduction, -RootFrontVelocity)
+ # summarise_each(funs(mean, sd)) %>%
+   ggplot() +
+  geom_point(aes(x=Date, y=Predicted),colour="grey") +
+  #geom_line(aes(x=Date, y=Predicted),colour="black") +
+  geom_point(aes(x=Date, y=Observed, colour="darkred"), size=3) +
+  facet_grid(Depth~Crop)
+
+
+```
+
