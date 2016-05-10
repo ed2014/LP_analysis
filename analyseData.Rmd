@@ -57,7 +57,9 @@ dataWork$RootFrontVelocity <- as.factor(dataWork$RootFrontVelocity)
 dataWork$Stage <- as.factor(ifelse(dataWork$Date<="2012-06-01 00:00:00","Seedling","Regrowth"))
 
 # re-order fators (ensure Obs is the LAST one)
-dataWork <- dataWork[c("Crop", "Irrigation", "Depth", "Stage","SurfaceKl", "RootDepth", "KLReduction", "RootFrontVelocity", "Date", "Predicted", "Obs")]
+dataWork <- dataWork[c("Crop", "Irrigation", "Depth", "Stage","Date",
+                       "SurfaceKl", "RootDepth", "KLReduction", "RootFrontVelocity", 
+                       "Predicted", "Obs")]
 
 head(dataWork)
 
@@ -84,7 +86,7 @@ Check clean dataset
 # final product
 str(dataWork)
 
-head(dataWork)
+head(dataWork, 20)
 
 tail(dataWork)
 
@@ -138,7 +140,7 @@ calculate table of statistics
 
 ```{r DoStatsAll, echo=FALSE, include=FALSE}
 
-statsTable <- dataWork %>%
+x <- dataWork %>%
   group_by(Crop, Irrigation, Stage, Depth, SurfaceKl, RootDepth, KLReduction, RootFrontVelocity) %>%
   summarise(
     n = n(),
@@ -148,11 +150,15 @@ statsTable <- dataWork %>%
     nse = round(NSE(Predicted,Observed),1),
     sb = gauchStats(Predicted,Observed)[1],
   nu = gauchStats(Predicted,Observed)[2],
-  lc = gauchStats(Predicted,Observed)[3]) %>%
-  tidyr::gather("stats","value",9:16) 
+  lc = gauchStats(Predicted,Observed)[3]) 
 
-statsTable %>%
-  kable(format = "markdown")
+#statsTable %>%
+#  kable(format = "markdown")
+
+head(x,20)
+
+statsTable <- x %>%
+  tidyr::gather("stats","value",9:16) 
 
 ```
 
@@ -182,4 +188,22 @@ dataWork %>%
 
 
 ```
+
+Look for the best fits for each scenario
+
+```{r BestFitFinder}
+
+
+# select lowest r_rmse
+x <- statsTable %>%
+  group_by(Crop, Irrigation, Stage, Depth) %>%
+  filter(stats == "r_rmse") %>%
+  filter(value == min(value) ) 
+
+
+x %>%
+  kable(format = "markdown")
+
+```
+
 
