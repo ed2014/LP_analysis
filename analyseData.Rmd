@@ -1,11 +1,10 @@
 ---
 title: "Untitled"
-output: word_document
+output: html_document
 ---
 
 
 ```{r LoadLibs, echo=FALSE, include=FALSE}
-
 library(xtable)
 library(knitr)
 library(RSQLite)
@@ -53,8 +52,8 @@ dataWork$RootDepth <- as.factor(dataWork$RootDepth)
 dataWork$KLReduction <- as.factor(dataWork$KLReduction)
 dataWork$RootFrontVelocity <- as.factor(dataWork$RootFrontVelocity)
 
-# separate into seedling and regrowth periods (FIXME: find a more functional criteria later)
-dataWork$Stage <- as.factor(ifelse(dataWork$Date<="2012-06-01 00:00:00","Seedling","Regrowth"))
+# separate into Establishment and regrowth periods (FIXME: find a more functional criteria later)
+dataWork$Stage <- as.factor(ifelse(dataWork$Date<="2012-06-01 00:00:00","Establishment","Regrowth"))
 
 # re-order fators (ensure Obs is the LAST one)
 dataWork <- dataWork[c("Crop", "Irrigation", "Depth", "Stage","Date",
@@ -74,7 +73,14 @@ dataWork$Depth <-factor(dataWork$Depth,
 dataWork$RootDepth <-factor(dataWork$RootDepth, levels = c("500","1000", "2000"))
 dataWork$KLReduction <-factor(dataWork$KLReduction, levels = c(".0.0005",".0.001", ".0.002", ".0.005"))
 dataWork$RootFrontVelocity <-factor(dataWork$RootFrontVelocity, levels = c("5","15", "30"))
-dataWork$Stage <- factor(dataWork$Stage, levels = c("Seedling","Regrowth"))
+dataWork$Stage <- factor(dataWork$Stage, levels = c("Establishment","Regrowth"))
+
+# create indexes to call later
+dataWork$index_crop <- paste0(dataWork$Crop, dataWork$SurfaceKl, dataWork$RootDepth, dataWork$KLReduction, dataWork$RootFrontVelocity)
+dataWork$index_stage <- paste0(dataWork$Crop, dataWork$Stage, dataWork$SurfaceKl, dataWork$RootDepth, dataWork$KLReduction, dataWork$RootFrontVelocity)
+
+dataWork$index_crop <- as.factor(dataWork$index_crop)
+dataWork$index_stage <- as.factor(dataWork$index_stage)
 
 ```
 
@@ -140,13 +146,14 @@ calculate table of statistics
 
 ```{r DoStatsAll, echo=FALSE, include=FALSE}
 
-x <- dataWork %>%
-  group_by(Crop, Irrigation, Stage, Depth, SurfaceKl, RootDepth, KLReduction, RootFrontVelocity) %>%
-  summarise(
+# agregate for Crop and Stage
+st1 <- dataWork %>%
+  dplyr::group_by(Crop, Stage, SurfaceKl, RootDepth, KLReduction, RootFrontVelocity) %>%
+  dplyr::summarise(
     n = n(),
     r2 = round(br2(Predicted,Observed)*100,0),
     rmse = round(rmse(Predicted,Observed),3),
-    r_rmse = round(rmse(Predicted,Observed)/mean(Observed)*100,1),
+    r_rmse = round(rmse(Predicted,Observed)/mean(Observed)*100,3),
     nse = round(NSE(Predicted,Observed),1),
     sb = gauchStats(Predicted,Observed)[1],
   nu = gauchStats(Predicted,Observed)[2],
@@ -155,54 +162,165 @@ x <- dataWork %>%
 #statsTable %>%
 #  kable(format = "markdown")
 
-head(x,20)
+head(st1,20)
 
-statsTable <- x %>%
-  tidyr::gather("stats","value",9:16) 
+# re-arrange
+#statsTable1 <- st1 %>%
+#  tidyr::gather("stats","value",8:15) 
+
+# agregate across crops and stages only
+#summary(statsTable1)
+
+# test fit across treatments and depths
+
+# agregate across crops only
+st2 <- dataWork %>%
+  group_by(Crop, SurfaceKl, RootDepth, KLReduction, RootFrontVelocity) %>%
+  summarise(
+    n = n(),
+    r2 = round(br2(Predicted,Observed)*100,0),
+    rmse = round(rmse(Predicted,Observed),3),
+    r_rmse = round(rmse(Predicted,Observed)/mean(Observed)*100,3),
+    nse = round(NSE(Predicted,Observed),1),
+    sb = gauchStats(Predicted,Observed)[1],
+    nu = gauchStats(Predicted,Observed)[2],
+    lc = gauchStats(Predicted,Observed)[3]) 
+
+
+head(st2,20)
+
+#statsTable2 <- st2 %>%
+#  tidyr::gather("stats","value",7:14) 
+
+#summary(statsTable2)
+
 
 ```
 
-```{r CheckStatstable}
-head(statsTable)
-
-statsTable %>%
-  ggplot()+
- geom_boxplot(aes(x=stats, y=value)) +
-  facet_wrap(~stats, scales="free") 
-
-```
-
+Compare observed and simulated time-series for dryland crops to check
 
 ```{r GraphAll}
 
+# example of dryland crops
 dataWork %>%
   filter(Irrigation =="None") %>%
- # group_by(Crop, Irrigation, Depth) %>%
- # dplyr::select(-Stage, -SurfaceKl,-RootDepth,-KLReduction, -RootFrontVelocity)
- # summarise_each(funs(mean, sd)) %>%
    ggplot() +
   geom_point(aes(x=Date, y=Predicted),colour="grey") +
-  #geom_line(aes(x=Date, y=Predicted),colour="black") +
   geom_point(aes(x=Date, y=Observed, colour="darkred"), size=3) +
   facet_grid(Depth~Crop)
 
 
 ```
 
-Look for the best fits for each scenario
+XY graph for Prediced x Observed for Crops and Stages
 
-```{r BestFitFinder}
+```{r XYgraph }
+dataWork %>%
+  ggplot(aes(x=Predicted, y=Observed,colour=factor(Depth))) +
+  stat_smooth(method = "lm", se = TRUE, 
+              linetype = 3,
+              aes(colour=factor(Depth))) +
+  geom_point() +
+  facet_grid(Crop~Stage, scales ="free") +
+  geom_abline(intercept = 0, slope = 1) 
 
+
+```
+
+Search for the best fit (lowest r_rmse)
+
+```{r BestFitFinder1}
 
 # select lowest r_rmse
-x <- statsTable %>%
-  group_by(Crop, Irrigation, Stage, Depth) %>%
-  filter(stats == "r_rmse") %>%
-  filter(value == min(value) ) 
 
+# crop + stage
+bf1 <- st1  %>% 
+  group_by(Crop, Stage) %>%
+  filter(r_rmse == min(r_rmse) ) %>%
+  filter(lc == max(lc))
 
-x %>%
+bf1 %>%
   kable(format = "markdown")
+
+# crop only
+bf2 <- st2  %>% 
+  group_by(Crop) %>%
+  filter(r_rmse == min(r_rmse) )
+
+head(bf2)
+
+bf2 %>%
+  kable(format = "markdown")
+
+```
+
+Plot best fits 
+
+```{r PlotBestFits, , fig.height=18,fig.width=12}
+
+sel1 <- dataWork %>%
+  filter(
+    Crop  == "Lucerne" &
+    SurfaceKl == "Low" &
+    RootDepth == "2000" &
+    KLReduction == ".0.0005" &
+    RootFrontVelocity == "15"
+  ) 
+                             
+sel1 %>%
+   ggplot() +
+  geom_point(aes(x=Date, y=Observed, colour="darkblue"), size=3) +
+  geom_line(aes(x=Date, y=Predicted),colour="black") +
+  facet_grid(Depth~Irrigation)
+
+sel1  %>%
+  ggplot(aes(x=Predicted, y=Observed,fill = factor(Stage),colour=factor(Stage))) +
+  stat_smooth(method = "lm", se = TRUE, 
+            linetype = 3) +
+  geom_point() +
+  facet_grid(Depth~Irrigation, scales = "free") +
+  geom_abline(intercept = 0, slope = 1) 
+
+sel1  %>%
+  ggplot(aes(x=Predicted, y=Observed,fill = factor(Stage),colour=factor(Stage))) +
+  stat_smooth(method = "lm", se = TRUE, 
+            linetype = 3) +
+  geom_point() +
+ # facet_grid(Depth~Irrigation, scales = "free") +
+  geom_abline(intercept = 0, slope = 1) 
+
+# Ryegrass
+
+sel2 <- dataWork %>%
+  filter(
+    Crop  == "Pasture" &
+    SurfaceKl == "Low" &
+    RootDepth == "1000" &
+    KLReduction == ".0.002" &
+    RootFrontVelocity == "30"
+  ) 
+
+ sel2 %>%
+   ggplot() +
+  geom_point(aes(x=Date, y=Observed, colour="darkblue"), size=3) +
+  geom_line(aes(x=Date, y=Predicted),colour="black") +
+  facet_grid(Depth~Irrigation)
+
+sel2  %>%
+  ggplot(aes(x=Predicted, y=Observed,fill = factor(Stage),colour=factor(Stage))) +
+  stat_smooth(method = "lm", se = TRUE, 
+            linetype = 4) +
+  geom_point() +
+  facet_grid(Depth~Irrigation, scales = "free") +
+  geom_abline(intercept = 0, slope = 1) 
+        
+   sel2  %>%
+  ggplot(aes(x=Predicted, y=Observed,fill = factor(Stage),colour=factor(Stage))) +
+  stat_smooth(method = "lm", se = TRUE, 
+            linetype = 4) +
+  geom_point() +
+ # facet_grid(Depth~Irrigation, scales = "free") +
+  geom_abline(intercept = 0, slope = 1)                   
 
 ```
 
