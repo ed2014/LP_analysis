@@ -1,5 +1,5 @@
 ---
-title: "Untitled"
+title: "Analysis of L&P dataset"
 output: html_document
 ---
 
@@ -27,7 +27,7 @@ Separete in Sedling and regrowth phases
 Get data formats right
 
 
-```{r LoadTidyUp, echo=FALSE,include=FALSE}
+```{r LoadTidyUp, echo=FALSE,include=FALSE, echo=FALSE}
 
 dataRaw <- read.csv("C:\\GitHubRepos\\LP_analysis\\ObsPre.csv", header = TRUE, skip = 4)
 
@@ -88,15 +88,14 @@ dataWork$index_stage <- as.factor(dataWork$index_stage)
 Check clean dataset
 
 
-```{r}
+```{r, echo=FALSE}
 # final product
 str(dataWork)
 
 head(dataWork, 20)
 
-tail(dataWork)
-
 summary(dataWork)
+
 ```
 
 
@@ -199,7 +198,7 @@ head(st2,20)
 
 Compare observed and simulated time-series for dryland crops to check
 
-```{r GraphAll}
+```{r GraphAll, fig.height=18,fig.width=12, echo=FALSE}
 
 # example of dryland crops
 dataWork %>%
@@ -214,7 +213,7 @@ dataWork %>%
 
 XY graph for Prediced x Observed for Crops and Stages
 
-```{r XYgraph }
+```{r XYgraph , fig.height=18,fig.width=12, echo=FALSE}
 dataWork %>%
   ggplot(aes(x=Predicted, y=Observed,colour=factor(Depth))) +
   stat_smooth(method = "lm", se = TRUE, 
@@ -229,7 +228,7 @@ dataWork %>%
 
 Search for the best fit (lowest r_rmse)
 
-```{r BestFitFinder1}
+```{r BestFitFinder1, echo=FALSE}
 
 # select lowest r_rmse
 
@@ -256,7 +255,7 @@ bf2 %>%
 
 Plot best fits 
 
-```{r PlotBestFits, , fig.height=18,fig.width=12}
+```{r PlotBestFits, fig.height=18,fig.width=12, echo=FALSE}
 
 sel1 <- dataWork %>%
   filter(
