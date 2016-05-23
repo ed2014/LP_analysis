@@ -14,6 +14,7 @@ library(tidyr)
 library(dplyr)
 library(ggplot2)
 library (hydroGOF)
+library(scales)
 
 ```
 
@@ -33,7 +34,7 @@ dataRaw <- read.csv("C:\\GitHubRepos\\LP_analysis\\ObsPre.csv", header = TRUE, s
 
 dataWork <- as.data.frame(dataRaw)
 
-dataWork$Date <- dmy_hm(dataRaw$Date)
+dataWork$Date <- as.Date(dmy_hm(dataRaw$Date))
 
 # create new factors from column label
 dataWork <- dataWork %>%
@@ -53,7 +54,10 @@ dataWork$KLReduction <- as.factor(dataWork$KLReduction)
 dataWork$RootFrontVelocity <- as.factor(dataWork$RootFrontVelocity)
 
 # separate into Establishment and regrowth periods (FIXME: find a more functional criteria later)
-dataWork$Stage <- as.factor(ifelse(dataWork$Date<="2012-06-01 00:00:00","Establishment","Regrowth"))
+estDate <- "2012-06-01 00:00:00"
+#estDate <- "2012-06-01"
+
+dataWork$Stage <- as.factor(ifelse(dataWork$Date<=estDate,"Establishment","Regrowth"))
 
 # re-order fators (ensure Obs is the LAST one)
 dataWork <- dataWork[c("Crop", "Irrigation", "Depth", "Stage","Date",
@@ -74,6 +78,7 @@ dataWork$RootDepth <-factor(dataWork$RootDepth, levels = c("500","1000", "2000")
 dataWork$KLReduction <-factor(dataWork$KLReduction, levels = c(".0.0005",".0.001", ".0.002", ".0.005"))
 dataWork$RootFrontVelocity <-factor(dataWork$RootFrontVelocity, levels = c("5","15", "30"))
 dataWork$Stage <- factor(dataWork$Stage, levels = c("Establishment","Regrowth"))
+dataWork$Irrigation <- factor(dataWork$Irrigation, levels = c("None","ThreeWeekly","OnePerWeek","TwoPerWeek"))
 
 # create indexes to call later
 dataWork$index_crop <- paste0(dataWork$Crop, dataWork$SurfaceKl, dataWork$RootDepth, dataWork$KLReduction, dataWork$RootFrontVelocity)
@@ -238,7 +243,9 @@ bf1 <- st1  %>%
   filter(r_rmse == min(r_rmse) ) %>%
   filter(lc == max(lc))
 
-bf1 %>%
+rownames(bf1) <- paste0(bf1$Crop,".",bf1$Stage)
+
+t(bf1) %>%
   kable(format = "markdown")
 
 # crop only
@@ -246,9 +253,11 @@ bf2 <- st2  %>%
   group_by(Crop) %>%
   filter(r_rmse == min(r_rmse) )
 
+rownames(bf2) <- paste0(bf2$Crop,".",bf2$Stage)
+
 head(bf2)
 
-bf2 %>%
+t(bf2) %>%
   kable(format = "markdown")
 
 ```
@@ -257,20 +266,36 @@ Plot best fits
 
 ```{r PlotBestFits, fig.height=18,fig.width=12, echo=FALSE}
 
+# finds the closest point to the date of establihment
+estLoc <- which.min(abs(as.Date(sel1$Date) - as.Date(estDate)))
+
+# Input best fits here (FIXME: Automate this as a function from paramater estimation)
 sel1 <- dataWork %>%
   filter(
+    # establisment
     Crop  == "Lucerne" &
+    Date <=   estLoc &
+    SurfaceKl == "Mid" &
+    RootDepth == "2000" &
+    KLReduction == ".0.0005" &
+    RootFrontVelocity == "15" |
+    # regrowth phase
+    Crop  == "Lucerne" &
+    Date >   estLoc &
     SurfaceKl == "Low" &
     RootDepth == "2000" &
     KLReduction == ".0.0005" &
     RootFrontVelocity == "15"
   ) 
-                             
+     
+
 sel1 %>%
-   ggplot() +
-  geom_point(aes(x=Date, y=Observed, colour="darkblue"), size=3) +
+  ggplot() +
+  geom_point(aes(x=Date, y=Observed), size=2, shape = 1) +
   geom_line(aes(x=Date, y=Predicted),colour="black") +
-  facet_grid(Depth~Irrigation)
+  facet_grid(Depth~Irrigation) + 
+  scale_x_date(labels = date_format("%b")) + scale_shape(solid = FALSE) + 
+  geom_vline(xintercept = as.numeric(sel1$Date[estLoc]),linetype = 2)
 
 sel1  %>%
   ggplot(aes(x=Predicted, y=Observed,fill = factor(Stage),colour=factor(Stage))) +
@@ -281,46 +306,106 @@ sel1  %>%
   geom_abline(intercept = 0, slope = 1) 
 
 sel1  %>%
-  ggplot(aes(x=Predicted, y=Observed,fill = factor(Stage),colour=factor(Stage))) +
+  ggplot(aes(x=Predicted, y=Observed,fill = factor(Depth),colour=factor(Depth))) +
   stat_smooth(method = "lm", se = TRUE, 
             linetype = 3) +
   geom_point() +
- # facet_grid(Depth~Irrigation, scales = "free") +
+  facet_grid(Stage~Irrigation, scales = "free") +
   geom_abline(intercept = 0, slope = 1) 
+
+```
+
+```{r}
+
 
 # Ryegrass
 
 sel2 <- dataWork %>%
   filter(
+    # establisment
     Crop  == "Pasture" &
+    Date <=   estLoc &
+    SurfaceKl == "Low" &
+    RootDepth == "2000" &
+    KLReduction == ".0.002" &
+    RootFrontVelocity == "30" |
+    # regrowth phase
+    Crop  == "Pasture" &
+    Date >   estLoc &
     SurfaceKl == "Low" &
     RootDepth == "1000" &
-    KLReduction == ".0.002" &
-    RootFrontVelocity == "30"
+    KLReduction == ".0.001" &
+    RootFrontVelocity == "5"
   ) 
 
  sel2 %>%
-   ggplot() +
-  geom_point(aes(x=Date, y=Observed, colour="darkblue"), size=3) +
+  ggplot() +
+  geom_point(aes(x=Date, y=Observed), size=2, shape = 1) +
   geom_line(aes(x=Date, y=Predicted),colour="black") +
-  facet_grid(Depth~Irrigation)
+  facet_grid(Depth~Irrigation) + 
+  scale_x_date(labels = date_format("%b")) + scale_shape(solid = FALSE) + 
+  geom_vline(xintercept = as.numeric(sel1$Date[estLoc]),linetype = 2)
 
 sel2  %>%
   ggplot(aes(x=Predicted, y=Observed,fill = factor(Stage),colour=factor(Stage))) +
   stat_smooth(method = "lm", se = TRUE, 
-            linetype = 4) +
+            linetype = 3) +
   geom_point() +
   facet_grid(Depth~Irrigation, scales = "free") +
   geom_abline(intercept = 0, slope = 1) 
-        
-   sel2  %>%
-  ggplot(aes(x=Predicted, y=Observed,fill = factor(Stage),colour=factor(Stage))) +
+
+sel2  %>%
+  ggplot(aes(x=Predicted, y=Observed,fill = factor(Depth),colour=factor(Depth))) +
   stat_smooth(method = "lm", se = TRUE, 
-            linetype = 4) +
+            linetype = 3) +
   geom_point() +
- # facet_grid(Depth~Irrigation, scales = "free") +
-  geom_abline(intercept = 0, slope = 1)                   
+  facet_grid(Stage~Irrigation, scales = "free") +
+  geom_abline(intercept = 0, slope = 1)                  
+
+
 
 ```
 
+
+```{r}
+
+# calculate the stats for the BEST fit
+# For each layer and depth combination to show trends
+# IDEA: how much this afected water uptake?
+
+sel3 <- rbind(sel1, sel2)
+
+
+g1 <- sel3 %>%
+  dplyr::group_by(Crop, Stage, Irrigation, Depth, SurfaceKl, RootDepth, KLReduction, RootFrontVelocity) %>%
+  dplyr::summarise(
+    n = n(),
+    r2 = round(br2(Predicted,Observed)*100,0),
+    rmse = round(rmse(Predicted,Observed),3),
+    r_rmse = round(rmse(Predicted,Observed)/mean(Observed)*100,3),
+    nse = round(NSE(Predicted,Observed),1),
+    sb = gauchStats(Predicted,Observed)[1],
+  nu = gauchStats(Predicted,Observed)[2],
+  lc = gauchStats(Predicted,Observed)[3]) 
+
+head(g1,20)
+
+# create a factor of  depth as integer
+g1$Depth_mm <- as.numeric(gsub("D", "",g1$Depth)) # FIXME: move this to a higher level (earlier) as it can be used in other graphs
+
+
+g1 %>%
+  ggplot(aes(x=Depth_mm*-1, y=r_rmse, colour=factor(Stage))) +
+  geom_point() +
+  geom_line() +
+ # geom_bar(aes(stats='identity')) +
+  facet_grid(Crop~Irrigation) +
+  coord_flip() + 
+  geom_hline(yintercept = 20,linetype = 2) +
+  labs(x = "Soil depth (cm)", y = "Relative Root Mean Squared Error (RMSE, % mean)") +
+  theme(text = element_text(size=rel(4)))
+
+
+
+```
 
