@@ -19,13 +19,13 @@ library(scales)
 ```
 
 
-Load the data
+# Load and massage the data
 
-Tidy up factors/levels (note the need to set new label on csv dataset)
+- Tidy up factors/levels (note the need to set new label on csv dataset)
 
-Separete in Sedling and regrowth phases
+- Separete in Sedling and regrowth phases
 
-Get data formats right
+- Get data formats right
 
 
 ```{r LoadTidyUp, echo=FALSE,include=FALSE, echo=FALSE}
@@ -81,8 +81,18 @@ dataWork$Stage <- factor(dataWork$Stage, levels = c("Establishment","Regrowth"))
 dataWork$Irrigation <- factor(dataWork$Irrigation, levels = c("None","ThreeWeekly","OnePerWeek","TwoPerWeek"))
 
 # create indexes to call later
-dataWork$index_crop <- paste0(dataWork$Crop, dataWork$SurfaceKl, dataWork$RootDepth, dataWork$KLReduction, dataWork$RootFrontVelocity)
-dataWork$index_stage <- paste0(dataWork$Crop, dataWork$Stage, dataWork$SurfaceKl, dataWork$RootDepth, dataWork$KLReduction, dataWork$RootFrontVelocity)
+dataWork$index_crop <- paste0(dataWork$Crop, "_",
+                              dataWork$SurfaceKl, "_",
+                              dataWork$RootDepth, "_",
+                              dataWork$KLReduction, "_",
+                              dataWork$RootFrontVelocity)
+
+dataWork$index_stage <- paste0(dataWork$Crop,"_",
+                               dataWork$Stage, "_",
+                               dataWork$SurfaceKl, "_",
+                               dataWork$RootDepth, "_",
+                               dataWork$KLReduction, "_",
+                               dataWork$RootFrontVelocity)
 
 dataWork$index_crop <- as.factor(dataWork$index_crop)
 dataWork$index_stage <- as.factor(dataWork$index_stage)
@@ -90,7 +100,7 @@ dataWork$index_stage <- as.factor(dataWork$index_stage)
 ```
 
 
-Check clean dataset
+# Check clean dataset
 
 
 ```{r, echo=FALSE}
@@ -103,9 +113,7 @@ summary(dataWork)
 
 ```
 
-
-
-Create stats function as per Gauch et al paper
+# Create stats function as per Gauch et al paper
 
 ```{r CreateStats, echo=FALSE, include=FALSE}
 
@@ -146,13 +154,13 @@ gauchStats(s,m)
 
 ```
 
-calculate table of statistics
+# Calculate table of statistics
 
 ```{r DoStatsAll, echo=FALSE, include=FALSE}
 
 # agregate for Crop and Stage
 st1 <- dataWork %>%
-  dplyr::group_by(Crop, Stage, SurfaceKl, RootDepth, KLReduction, RootFrontVelocity) %>%
+  dplyr::group_by(Crop, Stage, SurfaceKl, RootDepth, KLReduction, RootFrontVelocity, index_stage) %>%
   dplyr::summarise(
     n = n(),
     r2 = round(br2(Predicted,Observed)*100,0),
@@ -179,7 +187,7 @@ head(st1,20)
 
 # agregate across crops only
 st2 <- dataWork %>%
-  group_by(Crop, SurfaceKl, RootDepth, KLReduction, RootFrontVelocity) %>%
+  group_by(Crop, SurfaceKl, RootDepth, KLReduction, RootFrontVelocity, index_crop) %>%
   summarise(
     n = n(),
     r2 = round(br2(Predicted,Observed)*100,0),
@@ -201,7 +209,7 @@ head(st2,20)
 
 ```
 
-Compare observed and simulated time-series for dryland crops to check
+# Compare observed and simulated time-series for "dryland"" crops to check
 
 ```{r GraphAll, fig.height=18,fig.width=12, echo=FALSE}
 
@@ -216,7 +224,7 @@ dataWork %>%
 
 ```
 
-XY graph for Prediced x Observed for Crops and Stages
+# XY graph for Prediced x Observed for whole dataset now
 
 ```{r XYgraph , fig.height=18,fig.width=12, echo=FALSE}
 dataWork %>%
@@ -231,7 +239,7 @@ dataWork %>%
 
 ```
 
-Search for the best fit (lowest r_rmse)
+# calculates the best fit (lowest r_rmse)
 
 ```{r BestFitFinder1, echo=FALSE}
 
@@ -262,38 +270,33 @@ t(bf2) %>%
 
 ```
 
-Plot best fits 
+# Best fit graphs for LUCERNE
 
-```{r PlotBestFits, fig.height=18,fig.width=12, echo=FALSE}
+```{r PlotBestFitsLuc, fig.height=18,fig.width=12, echo=FALSE}
+
+
+
+# Input best fits here (FIXME: Automate this as a function from paramater estimation)
+
+selecParams <- as.character(unique(bf1$index_stage))
+
+sel1 <- dataWork %>%
+  filter(
+    # establisment
+    index_stage == selecParams[1] | # watch for this conventions of names (FIXME)
+    # regrowth phase
+    index_stage == selecParams[2]
+  ) 
 
 # finds the closest point to the date of establihment
 estLoc <- which.min(abs(as.Date(sel1$Date) - as.Date(estDate)))
 
-# Input best fits here (FIXME: Automate this as a function from paramater estimation)
-sel1 <- dataWork %>%
-  filter(
-    # establisment
-    Crop  == "Lucerne" &
-    Date <=   estLoc &
-    SurfaceKl == "Mid" &
-    RootDepth == "2000" &
-    KLReduction == ".0.0005" &
-    RootFrontVelocity == "15" |
-    # regrowth phase
-    Crop  == "Lucerne" &
-    Date >   estLoc &
-    SurfaceKl == "Low" &
-    RootDepth == "2000" &
-    KLReduction == ".0.0005" &
-    RootFrontVelocity == "15"
-  ) 
-     
-
+# graph lucerne
 sel1 %>%
   ggplot() +
   geom_point(aes(x=Date, y=Observed), size=2, shape = 1) +
   geom_line(aes(x=Date, y=Predicted),colour="black") +
-  facet_grid(Depth~Irrigation) + 
+  facet_grid(Depth~Irrigation, scales = "free") + 
   scale_x_date(labels = date_format("%b")) + scale_shape(solid = FALSE) + 
   geom_vline(xintercept = as.numeric(sel1$Date[estLoc]),linetype = 2)
 
@@ -315,34 +318,27 @@ sel1  %>%
 
 ```
 
-```{r}
+# Best fit graphs for RYEGRASS
+
+```{r BestFitRye, fig.height=18,fig.width=12, echo=FALSE}
 
 
 # Ryegrass
-
 sel2 <- dataWork %>%
   filter(
     # establisment
-    Crop  == "Pasture" &
-    Date <=   estLoc &
-    SurfaceKl == "Low" &
-    RootDepth == "2000" &
-    KLReduction == ".0.002" &
-    RootFrontVelocity == "30" |
+    index_stage == selecParams[3] |
     # regrowth phase
-    Crop  == "Pasture" &
-    Date >   estLoc &
-    SurfaceKl == "Low" &
-    RootDepth == "1000" &
-    KLReduction == ".0.001" &
-    RootFrontVelocity == "5"
+    index_stage == selecParams[4]
   ) 
 
+
+# graph ryegrass
  sel2 %>%
   ggplot() +
   geom_point(aes(x=Date, y=Observed), size=2, shape = 1) +
   geom_line(aes(x=Date, y=Predicted),colour="black") +
-  facet_grid(Depth~Irrigation) + 
+  facet_grid(Depth~Irrigation, scales = "free") + 
   scale_x_date(labels = date_format("%b")) + scale_shape(solid = FALSE) + 
   geom_vline(xintercept = as.numeric(sel1$Date[estLoc]),linetype = 2)
 
@@ -366,8 +362,9 @@ sel2  %>%
 
 ```
 
+# How does the best fit look in terms of RMSE by depth?
 
-```{r}
+```{r StatsPerDepth, echo = FALSE, fig.height=12,fig.width=12, echo=FALSE}
 
 # calculate the stats for the BEST fit
 # For each layer and depth combination to show trends
@@ -403,7 +400,8 @@ g1 %>%
   coord_flip() + 
   geom_hline(yintercept = 20,linetype = 2) +
   labs(x = "Soil depth (cm)", y = "Relative Root Mean Squared Error (RMSE, % mean)") +
-  theme(text = element_text(size=rel(4)))
+  theme(text = element_text(size=rel(4))) +
+  theme(legend.text=element_text(size=16))
 
 
 
