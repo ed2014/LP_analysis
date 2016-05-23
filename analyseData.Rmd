@@ -396,9 +396,9 @@ g1 %>%
   geom_point() +
   geom_line() +
  # geom_bar(aes(stats='identity')) +
-  facet_grid(Crop~Irrigation) +
+  facet_grid(Crop~Irrigation, scales = "free") +
   coord_flip() + 
-  geom_hline(yintercept = 20,linetype = 2) +
+ # geom_hline(yintercept = 1,linetype = 20) +
   labs(x = "Soil depth (cm)", y = "Relative Root Mean Squared Error (RMSE, % mean)") +
   theme(text = element_text(size=rel(4))) +
   theme(legend.text=element_text(size=16))
