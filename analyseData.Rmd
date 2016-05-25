@@ -372,7 +372,7 @@ sel2  %>%
 
 sel3 <- rbind(sel1, sel2)
 
-
+# calculates stats by depth
 g1 <- sel3 %>%
   dplyr::group_by(Crop, Stage, Irrigation, Depth, SurfaceKl, RootDepth, KLReduction, RootFrontVelocity) %>%
   dplyr::summarise(
@@ -390,7 +390,7 @@ head(g1,20)
 # create a factor of  depth as integer
 g1$Depth_mm <- as.numeric(gsub("D", "",g1$Depth)) # FIXME: move this to a higher level (earlier) as it can be used in other graphs
 
-
+# _rmse by depth and crop
 g1 %>%
   ggplot(aes(x=Depth_mm*-1, y=r_rmse, colour=factor(Stage))) +
   geom_point() +
@@ -398,11 +398,43 @@ g1 %>%
  # geom_bar(aes(stats='identity')) +
   facet_grid(Crop~Irrigation, scales = "free") +
   coord_flip() + 
- # geom_hline(yintercept = 1,linetype = 20) +
+  geom_hline(yintercept = 1,linetype = 20) +
   labs(x = "Soil depth (cm)", y = "Relative Root Mean Squared Error (RMSE, % mean)") +
   theme(text = element_text(size=rel(4))) +
   theme(legend.text=element_text(size=16))
 
+# bring all stats together
+
+# lucerne
+g1 %>%
+  dplyr::select(-sb,-nu,-lc,-n) %>%
+  tidyr::gather("StatsType","StatsValue", 9:12) %>%
+  filter(Crop == "Lucerne") %>%
+  ggplot(aes(x=Depth_mm*-1, y=StatsValue, colour=factor(Stage))) +
+  geom_point() +
+  geom_line() +
+ # geom_bar(aes(stats='identity')) +
+  facet_grid(Crop+StatsType~Irrigation,scales = "free") +
+  coord_flip() + 
+  labs(x = "Soil depth (cm)", y = "Relative Root Mean Squared Error (RMSE, % mean)") +
+  theme(text = element_text(size=rel(4))) +
+  theme(legend.text=element_text(size=16))
+
+
+# pasture
+g1 %>%
+  dplyr::select(-sb,-nu,-lc,-n) %>%
+  tidyr::gather("StatsType","StatsValue", 9:12) %>%
+  filter(Crop == "Pasture") %>%
+  ggplot(aes(x=Depth_mm*-1, y=StatsValue, colour=factor(Stage))) +
+  geom_point() +
+  geom_line() +
+ # geom_bar(aes(stats='identity')) +
+  facet_grid(Crop+StatsType~Irrigation,scales = "free") +
+  coord_flip() + 
+  labs(x = "Soil depth (cm)", y = "Relative Root Mean Squared Error (RMSE, % mean)") +
+  theme(text = element_text(size=rel(4))) +
+  theme(legend.text=element_text(size=16))
 
 
 ```
