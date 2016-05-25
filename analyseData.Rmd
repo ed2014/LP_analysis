@@ -19,7 +19,7 @@ library(scales)
 ```
 
 
-# Load and massage the data
+## Load and massage the data
 
 - Tidy up factors/levels (note the need to set new label on csv dataset)
 
@@ -100,7 +100,7 @@ dataWork$index_stage <- as.factor(dataWork$index_stage)
 ```
 
 
-# Check clean dataset
+## Check clean dataset
 
 
 ```{r, echo=FALSE}
@@ -113,7 +113,7 @@ summary(dataWork)
 
 ```
 
-# Create stats function as per Gauch et al paper
+## Create stats function as per Gauch et al paper
 
 ```{r CreateStats, echo=FALSE, include=FALSE}
 
@@ -154,7 +154,7 @@ gauchStats(s,m)
 
 ```
 
-# Calculate table of statistics
+## Calculate table of statistics
 
 ```{r DoStatsAll, echo=FALSE, include=FALSE}
 
@@ -209,7 +209,9 @@ head(st2,20)
 
 ```
 
-# Compare observed and simulated time-series for "dryland"" crops to check
+## Compare observed and simulated time-series 
+
+- for "dryland"" crops just to check
 
 ```{r GraphAll, fig.height=18,fig.width=12, echo=FALSE}
 
@@ -224,7 +226,7 @@ dataWork %>%
 
 ```
 
-# XY graph for Prediced x Observed for whole dataset now
+## XY graph for Prediced x Observed for whole dataset now
 
 ```{r XYgraph , fig.height=18,fig.width=12, echo=FALSE}
 dataWork %>%
@@ -239,7 +241,7 @@ dataWork %>%
 
 ```
 
-# calculates the best fit (lowest r_rmse)
+## calculates the best fit (lowest r_rmse)
 
 ```{r BestFitFinder1, echo=FALSE}
 
@@ -270,7 +272,7 @@ t(bf2) %>%
 
 ```
 
-# Best fit graphs for LUCERNE
+## Best fit graphs for LUCERNE
 
 ```{r PlotBestFitsLuc, fig.height=18,fig.width=12, echo=FALSE}
 
@@ -318,7 +320,7 @@ sel1  %>%
 
 ```
 
-# Best fit graphs for RYEGRASS
+## Best fit graphs for RYEGRASS
 
 ```{r BestFitRye, fig.height=18,fig.width=12, echo=FALSE}
 
@@ -362,9 +364,9 @@ sel2  %>%
 
 ```
 
-# How does the best fit look in terms of RMSE by depth?
+## How does the best fit(s) look in terms of RMSE by depth?
 
-```{r StatsPerDepth, echo = FALSE, fig.height=12,fig.width=12, echo=FALSE}
+```{r RmsdPerDepth, echo = FALSE, fig.height=12,fig.width=12, echo=FALSE}
 
 # calculate the stats for the BEST fit
 # For each layer and depth combination to show trends
@@ -396,13 +398,24 @@ g1 %>%
   geom_point() +
   geom_line() +
  # geom_bar(aes(stats='identity')) +
-  facet_grid(Crop~Irrigation, scales = "free") +
+  facet_grid(Crop~Irrigation) +
   coord_flip() + 
-  geom_hline(yintercept = 1,linetype = 20) +
+  geom_hline(yintercept = 20,linetype = 20) +
   labs(x = "Soil depth (cm)", y = "Relative Root Mean Squared Error (RMSE, % mean)") +
   theme(text = element_text(size=rel(4))) +
   theme(legend.text=element_text(size=16))
 
+
+
+
+```
+
+
+## Bring all stats together
+
+- Compare stats across depths now
+
+```{r StatsPerDepth, echo = FALSE, fig.height=12,fig.width=12, echo=FALSE}
 # bring all stats together
 
 # lucerne
@@ -410,13 +423,13 @@ g1 %>%
   dplyr::select(-sb,-nu,-lc,-n) %>%
   tidyr::gather("StatsType","StatsValue", 9:12) %>%
   filter(Crop == "Lucerne") %>%
-  ggplot(aes(x=Depth_mm*-1, y=StatsValue, colour=factor(Stage))) +
+  ggplot(aes(x=Depth_mm, y=StatsValue, colour=factor(Stage))) +
   geom_point() +
   geom_line() +
  # geom_bar(aes(stats='identity')) +
-  facet_grid(Crop+StatsType~Irrigation,scales = "free") +
-  coord_flip() + 
-  labs(x = "Soil depth (cm)", y = "Relative Root Mean Squared Error (RMSE, % mean)") +
+  facet_wrap(~StatsType+Irrigation,scales = "free", ncol=4) +
+ # coord_flip() + 
+  labs(x = "Soil depth (cm)", y = "Stats (xxxxx)") +
   theme(text = element_text(size=rel(4))) +
   theme(legend.text=element_text(size=16))
 
@@ -426,18 +439,16 @@ g1 %>%
   dplyr::select(-sb,-nu,-lc,-n) %>%
   tidyr::gather("StatsType","StatsValue", 9:12) %>%
   filter(Crop == "Pasture") %>%
-  ggplot(aes(x=Depth_mm*-1, y=StatsValue, colour=factor(Stage))) +
+  ggplot(aes(x=Depth_mm, y=StatsValue, colour=factor(Stage))) +
   geom_point() +
   geom_line() +
- # geom_bar(aes(stats='identity')) +
-  facet_grid(Crop+StatsType~Irrigation,scales = "free") +
-  coord_flip() + 
-  labs(x = "Soil depth (cm)", y = "Relative Root Mean Squared Error (RMSE, % mean)") +
+  facet_wrap(~StatsType~Irrigation, scales = "free") +
+#  coord_flip() + 
+  labs(x = "Soil depth (cm)", y = "Stats (xxxxxx)") +
   theme(text = element_text(size=rel(4))) +
   theme(legend.text=element_text(size=16))
-
-
 ```
+
 
 
 ## Partition of RMSE into Gauch fractions
