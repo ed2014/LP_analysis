@@ -439,3 +439,46 @@ g1 %>%
 
 ```
 
+
+## Partition of RMSE into Gauch fractions
+
+- Standard bias (SB)
+
+- Non Unit (NU)
+
+- Lack of Correlation (LU)
+
+```{r GauchStatsByDepth, echo = TRUE, fig.height=12,fig.width=12, echo=FALSE}
+
+# Lucerne
+g1 %>%
+  dplyr::select(-n, -r2,-rmse,-r_rmse,-nse,-Depth_mm) %>%
+  tidyr::gather("StatsType","StatsValue", 9:11) %>%
+  filter(Crop == "Lucerne") %>%
+  mutate(Depth = factor(Depth, levels = c("D150","D130","D110", "D90", "D70", "D50", "D30","D23","D7"))) %>%
+  ggplot(aes(x=rev(Depth), y=StatsValue,fill=StatsType)) +
+  geom_bar(stat='identity') +
+  facet_grid(Crop+Stage~Irrigation,scales = "free") +
+  coord_flip() + 
+  labs(x = "Soil depth (cm)", y = "Share of RMSD (%)") +
+  theme(text = element_text(size=rel(4))) +
+  theme(legend.text=element_text(size=16))
+
+# Ryegrass
+g1 %>%
+  dplyr::select(-n, -r2,-rmse,-r_rmse,-nse,-Depth_mm) %>%
+  tidyr::gather("StatsType","StatsValue", 9:11) %>%
+  filter(Crop == "Pasture") %>%
+  mutate(Depth = factor(Depth, levels = c("D150","D130","D110", "D90", "D70", "D50", "D30","D23","D7"))) %>%
+  ggplot(aes(x=rev(Depth), y=StatsValue,fill=StatsType)) +
+  geom_bar(stat='identity') +
+  facet_grid(Crop+Stage~Irrigation,scales = "free") +
+  coord_flip() + 
+  labs(x = "Soil depth (cm)", y = "Share of RMSD (%)") +
+  theme(text = element_text(size=rel(4))) +
+  theme(legend.text=element_text(size=16))
+
+
+```
+
+
