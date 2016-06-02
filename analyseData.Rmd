@@ -31,12 +31,14 @@ library(scales)
 ```{r LoadTidyUp, echo=FALSE,include=FALSE, echo=FALSE}
 
 #dataRaw <- read.csv("C:\\GitHubRepos\\LP_analysis\\ObsPre.csv", header = TRUE, skip = 4)
-dataRaw <- read.csv("C:\\GitHubRepos\\LP_analysis\\ObsPre.csv", header = TRUE)
+dataRaw <- read.csv("K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\ObsPre.csv", header = TRUE)
+
+head(dataRaw)
 
 dataWork <- as.data.frame(dataRaw)
 
 #dataWork$Date <- as.Date(dmy_hm(dataRaw$Date))
-dataWork$Date <- as.Date(dmy(dataRaw$Date))
+dataWork$Date <- as.Date(ymd(dataRaw$Date))
 
 # create new factors from column label
 #dataWork <- dataWork %>%
@@ -158,7 +160,7 @@ summary(dataWork)
 # example of dryland crops
 dataWork %>%
   filter(Irrigation =="None") %>%
-   ggplot() +
+  ggplot() +
   geom_point(aes(x=Date, y=Pred),colour="grey") +
   geom_point(aes(x=Date, y=Obs, colour="darkred"), size=3) +
   facet_grid(Depth~Crop)
@@ -220,10 +222,10 @@ gauchStats <- function(sim, meas) {
 # overall stats function including gauch FIXME: Not working
 statsFunc <- function (sim, meas){
     n = n()
-    r2 = round(br2(sim,meas)*100,0)
-    rmse = round(rmse(sim,meas),3)
+    r2 = br2(sim,meas)*100
+    rmse = rmse(sim,meas)
     r_rmse = rmse(sim,Obs)/mean(meas)*100 # big precision to enable cretrial of selection 
-    nse = round(NSE(sim,meas),1)
+    nse = NSE(sim,meas)
     sb = gauchStats(sim,meas)[1]
     nu = gauchStats(sim,meas)[2]
     lc = gauchStats(sim,meas)[3]
@@ -237,10 +239,10 @@ dataWork %>%
   group_by(Crop, SurfaceKl, KLReduction_cat, RootFrontVelocity_cat, index, index_crop) %>%
   summarise(
     n = n(),
-    r2 = round(br2(Pred,Obs)*100,0),
-    rmse = round(rmse(Pred,Obs),3),
+    r2 = br2(Pred,Obs)*100,
+    rmse = rmse(Pred,Obs),
     r_rmse = rmse(Pred,Obs)/mean(Obs)*100, # big precision to enable cretrial of selection 
-    nse = round(NSE(Pred,Obs),1),
+    nse = NSE(Pred,Obs),
     sb = gauchStats(Pred,Obs)[1],
     nu = gauchStats(Pred,Obs)[2],
     lc = gauchStats(Pred,Obs)[3]) 
@@ -259,7 +261,19 @@ gauchStats(s,m)
 ```{r StatsByLayer}
 
 # TODO: Do stats by layer and drop similations that have poor fit on top layers OR
+st1_l <- dataWork %>%
+  dplyr::group_by(Crop, Stage, Depth, SurfaceKl, KLReduction_cat, RootFrontVelocity_cat, index) %>%
+  dplyr::summarise(
+    n = n(),
+    r2 = br2(Pred,Obs)*100,
+    rmse = rmse(Pred,Obs), # FIXME: what to do when there are similar rmse for different parameters?
+    r_rmse = rmse(Pred,Obs)/mean(Obs)*100,
+    nse = NSE(Pred,Obs),
+    sb = gauchStats(Pred,Obs)[1],
+  nu = gauchStats(Pred,Obs)[2],
+  lc = gauchStats(Pred,Obs)[3]) 
 
+head(st1_l,20)
 # 
 
 ```
@@ -300,6 +314,63 @@ st2 <- dataWork %>%
 ```
 
 
+
+```{r AnalyseStats, fig.height=18,fig.width=12, echo=FALSE}
+
+
+# how are statistics related
+# is there any relationship between r_rmse and lc
+st1 %>%
+  tidyr::gather("Stats", "Value", 10:14) %>%
+  ggplot(aes(x=rmse, y=Value, colour=factor(Crop))) +
+  geom_point () +
+  geom_smooth() + 
+  facet_grid(Stats~Crop, scales = "free")
+
+# IDEA: the best combination of low rmse and high lc
+
+
+
+
+st1  %>% 
+  ungroup() %>% # to allow mutate
+  mutate(RootFrontVelocity_cat = 
+           factor(RootFrontVelocity_cat,levels = c("Low", "Mid", "High"))) %>%
+  group_by(Crop, Stage) %>%
+  ggplot(aes(x = SurfaceKl, 
+             y = KLReduction_cat, 
+             z = RootFrontVelocity_cat, 
+             fill = r_rmse)) +
+  geom_tile() + 
+  coord_equal() +
+  stat_contour() + 
+  facet_grid(Stage~Crop+RootFrontVelocity_cat) + 
+    scale_colour_gradientn(colours=rainbow(4))
+
+
+
+# add continuous value sof factor (parameters)
+st2 <- merge(st1,kl_red_cats,by="KLReduction_cat")
+st2 <- merge(st1,kl_surface_cats,by="SurfaceKl")
+st2 <- merge(st1,RFV_cats,by="RootFrontVelocity_cat")
+
+# sensiti plots for lc and rmse
+st2 %>%
+  ungroup() %>% # to allow mutate
+  mutate(RootFrontVelocity_cat = 
+           factor(RootFrontVelocity_cat,levels = c("Low", "Mid", "High"))) %>%
+  ggplot(aes(x=lc, colour=factor(SurfaceKl),fill=factor(SurfaceKl))) +
+  geom_density(alpha=0.2) + 
+  facet_grid(Stage~Crop)
+
+head(st2)
+
+
+
+```
+
+
+
 ## calculates the best fit (lowest r_rmse)
 
 ```{r BestFitFinder1, echo=FALSE}
@@ -310,7 +381,8 @@ st2 <- dataWork %>%
 bf1 <- st1  %>% 
   group_by(Crop, Stage) %>%
   filter(r_rmse == min(r_rmse) ) %>%
-  filter(lc == max(lc))
+  filter(lc == max(lc)) #%>%
+ # filter(r_rmse == min(r_rmse) ) 
 
 rownames(bf1) <- paste0(bf1$Crop,".",bf1$Stage)
 
@@ -320,7 +392,9 @@ t(bf1) %>%
 # crop only
 bf2 <- st2  %>% 
   group_by(Crop) %>%
-  filter(r_rmse == min(r_rmse) )
+  filter(r_rmse == min(r_rmse) ) %>%
+  filter(lc == max(lc)) #%>%
+ # filter(r_rmse == min(r_rmse) ) 
 
 rownames(bf2) <- paste0(bf2$Crop,".",bf2$Stage) # FIXME: This BREAKS when there are multiple optimum parameters (same rmsd) - FIX it!
 
@@ -361,13 +435,13 @@ sel1 %>%
   scale_x_date(labels = date_format("%b")) + scale_shape(solid = FALSE) + 
   geom_vline(xintercept = as.numeric(sel1$Date[estLoc]),linetype = 2)
 
-sel1  %>%
-  ggplot(aes(x=Pred, y=Obs,fill = factor(Stage),colour=factor(Stage))) +
-  stat_smooth(method = "lm", se = TRUE, 
-            linetype = 3) +
-  geom_point() +
-  facet_grid(Depth~Irrigation, scales = "free") +
-  geom_abline(intercept = 0, slope = 1) 
+#sel1  %>%
+#  ggplot(aes(x=Pred, y=Obs,fill = factor(Stage),colour=factor(Stage))) +
+#  stat_smooth(method = "lm", se = TRUE, 
+#            linetype = 3) +
+#  geom_point() +
+#  facet_grid(Depth~Irrigation, scales = "free") +
+#  geom_abline(intercept = 0, slope = 1) 
 
 sel1  %>%
   ggplot(aes(x=Pred, y=Obs,fill = factor(Depth),colour=factor(Depth))) +
@@ -403,13 +477,13 @@ sel2 <- dataWork %>%
   scale_x_date(labels = date_format("%b")) + scale_shape(solid = FALSE) + 
   geom_vline(xintercept = as.numeric(sel1$Date[estLoc]),linetype = 2)
 
-sel2  %>%
-  ggplot(aes(x=Pred, y=Obs,fill = factor(Stage),colour=factor(Stage))) +
-  stat_smooth(method = "lm", se = TRUE, 
-            linetype = 3) +
-  geom_point() +
-  facet_grid(Depth~Irrigation, scales = "free") +
-  geom_abline(intercept = 0, slope = 1) 
+#sel2  %>%
+#  ggplot(aes(x=Pred, y=Obs,fill = factor(Stage),colour=factor(Stage))) +
+#  stat_smooth(method = "lm", se = TRUE, 
+#            linetype = 3) +
+#  geom_point() +
+#  facet_grid(Depth~Irrigation, scales = "free") +
+#  geom_abline(intercept = 0, slope = 1) 
 
 sel2  %>%
   ggplot(aes(x=Pred, y=Obs,fill = factor(Depth),colour=factor(Depth))) +
@@ -530,10 +604,10 @@ df <- g1 %>%
 
 # Lucerne
   df %>%
-  filter(Crop == "Lucerne") %>%
+#  filter(Crop == "Lucerne") %>%
   ggplot(aes(x=Depth, y=StatsValue,fill=StatsType)) +
   geom_bar(stat='identity') +
-  facet_grid(Stage~Irrigation,scales = "free") +
+  facet_grid(Crop+Stage~Irrigation,scales = "free") +
   coord_flip() + 
   labs(x = "Soil depth (cm)", y = "RMSD") +
   theme(text = element_text(size=rel(4))) +
