@@ -377,31 +377,40 @@ head(st2)
 
 # select lowest r_rmse
 
-# crop + stage
-bf1 <- st1  %>% 
-  group_by(Crop, Stage) %>%
+# finds best fit for the establishment phase first
+bf0 <- st1  %>% 
+  filter(Stage=="Establishment") %>%
+  group_by(Crop) %>%
   filter(r_rmse == min(r_rmse) ) %>%
   filter(lc == max(lc)) #%>%
  # filter(r_rmse == min(r_rmse) ) 
+
+rownames(bf0) <- paste0(bf0$Crop)
+
+t(bf0) %>%
+  kable(format = "markdown")
+
+selecParamsEst <- as.character(unique(bf0$index))
+RVF_luc_est <- bf0[bf0$Crop=="Lucerne",]$RootFrontVelocity_cat
+RVF_rye_est <- bf0[bf0$Crop=="Pasture",]$RootFrontVelocity_cat
+
+# now select best fit for regrowth by setting the RFV to the selected in the establishment phase
+bf1 <- st1  %>% 
+  filter(  
+    index == selecParamsEst[1] | # bring back only selected establishmnet combinations 
+    index == selecParamsEst[2] |
+    (Crop == "Lucerne" &  Stage == "Regrowth" & RootFrontVelocity_cat == RVF_luc_est) |   
+    (Crop == "Pasture" &  Stage == "Regrowth" & RootFrontVelocity_cat == RVF_rye_est)
+    ) %>% 
+  group_by(Crop, Stage) %>%
+  filter(r_rmse == min(r_rmse) ) %>%
+  filter(lc == max(lc))
 
 rownames(bf1) <- paste0(bf1$Crop,".",bf1$Stage)
 
 t(bf1) %>%
   kable(format = "markdown")
 
-# crop only
-bf2 <- st2  %>% 
-  group_by(Crop) %>%
-  filter(r_rmse == min(r_rmse) ) %>%
-  filter(lc == max(lc)) #%>%
- # filter(r_rmse == min(r_rmse) ) 
-
-rownames(bf2) <- paste0(bf2$Crop,".",bf2$Stage) # FIXME: This BREAKS when there are multiple optimum parameters (same rmsd) - FIX it!
-
-head(bf2)
-
-t(bf2) %>%
-  kable(format = "markdown")
 
 ```
 
