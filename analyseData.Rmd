@@ -19,6 +19,12 @@ library(scales)
 ```
 
 
+## FIXME list
+
+- Print numeric value of Surfacekl in csv output
+- Use numeric value of parameters as characters througout to simplify comparisons
+- Depth can come as numeric too
+
 ## Load and massage the data
 
 - Tidy up factors/levels (note the need to set new label on csv dataset)
@@ -32,52 +38,69 @@ library(scales)
 
 #dataRaw <- read.csv("C:\\GitHubRepos\\LP_analysis\\ObsPre.csv", header = TRUE, skip = 4)
 dataRaw <- read.csv("K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\ObsPre.csv", header = TRUE)
-
 head(dataRaw)
 
+# Sort out formats
 dataWork <- as.data.frame(dataRaw)
-
-#dataWork$Date <- as.Date(dmy_hm(dataRaw$Date))
 dataWork$Date <- as.Date(ymd(dataRaw$Date))
 
-# create new factors from column label
-#dataWork <- dataWork %>%
-#  tidyr::gather("ExtraFactors","Pred",5:112) # FIXME: selected by hand check if valid or make it automated
-
-#head(dataWork)
-
-# sort out levels for new fators
-#dataWork <- dataWork %>%
-#  separate(ExtraFactors,c("SurfaceKl","RootDepth","KLReduction","RootFrontVelocity"),sep = "_", remove=TRUE)
-
 head(dataWork)
+summary(dataWork)
 
 # sort out formats
-dataWork$SurfaceKl <- as.factor(dataWork$SurfaceKl)
 dataWork$KLReduction <- as.numeric(dataWork$KLReduction)
 dataWork$RootFrontVelocity <- as.numeric(dataWork$RootFrontVelocity)
+dataWork$SurfaceKl <- as.factor(dataWork$SurfaceKl) # FIXME: kl must come as numeric
 
-# separate into Establishment and regrowth periods (FIXME: find a more functional criteria later)
-#estDate <- "2012-06-01 00:00:00"
-estDate <- "2012-06-01"
-
+# Separate into Establishment and Regrowth periods
+estDate <- "2012-06-01" # FIXME: find a more functional criteria later #estDate <- "2012-06-01 00:00:00"
 dataWork$Stage <- as.factor(ifelse(dataWork$Date<=estDate,"Establishment","Regrowth"))
 
 # colnames(dataWork)[ncol(dataWork)] <- "Obs" # Check if right col # FIXME: Not sure why this was done
 
 # make categories (parameters levels) as factors with numeric values of parameters associated
+cat_kl_red <- c("fkl1", "fkl2", "fkl3", "fkl4", "fkl5", "fkl6", "fkl7")
+cat_kl_surface <- c("Vlo", "Low", "Mid", "High", "VHig")
+cat_depth <- c("D7", "D23", "D30", "D50", "D70", "D90", "D110", "D130", "D150")
+# cat_depth <- unique(dataWork$Depth) # FIXME: tricky to reorder - should come as number?
+cat_RFV <- c("RFV1", "RFV2", "RFV3")
+cat_irr <- c("None","ThreeWeekly","OnePerWeek","TwoPerWeek")
+
+cat_kl_red
+cat_kl_surface
+cat_depth
+cat_RFV
+cat_irr
+
+options("scipen"=100, "digits"=4) # prints not in scientific notation
 
 # get numeric values of parameters tested and respective classes
-kl_red_cats <- data.frame(KLReduction_cat = c("s1", "s2", "s3", "s4", "s5", "s6", "s7"), KLReduction = as.numeric(c(-0.0001,-0.0005,-0.001,-0.002,-0.003,-0.005,-0.01))) 
-kl_surface_cats <- data.frame(SurfaceKl = c("Vlo", "Low", "Mid", "High", "VHig"), SurfaceKl_num = as.numeric(c(0.03, 0.06, 0.09, 0.14, 0.2))) 
-depth_cats <- data.frame(Depth = c("D7", "D23", "D30", "D50", "D70", "D90", "D110", "D130", "D150"), Depth_num = as.numeric(c(7, 23, 30, 50, 70,90,110,130,150))) 
-RFV_cats <- data.frame(RootFrontVelocity_cat = c("Low", "Mid", "High"), RootFrontVelocity = as.numeric(c(5,15,30)))
+kl_red_cats <- data.frame(KLReduction_cat = cat_kl_red, 
+                      #    KLReduction = as.numeric(c(-0.0001,-0.0005,-0.001,-0.002,-0.003,-0.005,-0.01))) 
+                           KLReduction =   as.numeric (unique(dataWork$KLReduction)))
+kl_surface_cats <- data.frame(SurfaceKl = cat_kl_surface, 
+                              SurfaceKl_num = as.numeric(c(0.03, 0.06, 0.09, 0.14, 0.2))) # FIXME: neeed to come as numeric
+                           # SurfaceKl =   as.numeric(unique(dataWork$SurfaceKl)))   
+depth_cats <- data.frame(Depth = cat_depth, 
+                         Depth_num = as.numeric(c(7, 23, 30, 50, 70,90,110,130,150))) # FIXME: neeed to come as numeric
+                        # Depth_num = as.numeric(c(7, 23, 30, 50, 70,90,110,130,150)))
+RFV_cats <- data.frame(RootFrontVelocity_cat = cat_RFV, 
+                      # RootFrontVelocity = as.numeric(c(5,15,30)))
+                       RootFrontVelocity = as.numeric(unique(dataWork$RootFrontVelocity)))
+
+
+kl_red_cats
+kl_surface_cats
+depth_cats
+RFV_cats
 
 # add cats or numeric values accordingly to tidy up
 dataWork <- merge(dataWork,kl_red_cats,by="KLReduction")
 dataWork <- merge(dataWork,kl_surface_cats,by="SurfaceKl")
 dataWork <- merge(dataWork,depth_cats,by="Depth")
 dataWork <- merge(dataWork,RFV_cats,by="RootFrontVelocity")
+
+head(dataWork)
 
 
 # sort out new var formats
@@ -91,13 +114,12 @@ head(dataWork)
 summary(dataWork)
 
 # re-order factor levels of factors as categories
-dataWork$SurfaceKl <- factor(dataWork$SurfaceKl, levels = c("Vlo", "Low", "Mid", "High", "VHig"))
-dataWork$Depth <-factor(dataWork$Depth, 
-                        levels = c("D7","D23", "D30", "D50", "D70", "D90","D110", "D130","D150"))
-dataWork$KLReduction <- factor(dataWork$KLReduction_cat, levels = c("s1", "s2", "s3", "s4", "s5", "s6", "s7"))
-dataWork$RootFrontVelocity <-factor(dataWork$RootFrontVelocity_cat, levels = c("Low","Mid","High"))
+dataWork$SurfaceKl <- factor(dataWork$SurfaceKl, levels = cat_kl_surface)
+dataWork$Depth <- factor(dataWork$Depth, levels = cat_depth)
+dataWork$KLReduction_cat <- factor(dataWork$KLReduction_cat, levels = cat_kl_red)
+dataWork$RootFrontVelocity_cat <- factor(dataWork$RootFrontVelocity_cat, levels = cat_RFV)
 dataWork$Stage <- factor(dataWork$Stage, levels = c("Establishment","Regrowth"))
-dataWork$Irrigation <- factor(dataWork$Irrigation, levels = c("None","ThreeWeekly","OnePerWeek","TwoPerWeek"))
+dataWork$Irrigation <- factor(dataWork$Irrigation, levels = cat_irr)
 
 # create indexes to call later
 dataWork$index <- paste0(dataWork$Crop, "_",
@@ -115,8 +137,6 @@ dataWork$index_crop <- paste0(dataWork$Crop,"_",
                               dataWork$RootFrontVelocity_cat)
 
 dataWork$index_crop <- as.factor(dataWork$index_crop)
-dataWork$index <- as.factor(dataWork$index)
-
 
 # re-order fators (ensure Obs is the LAST one)
 dataWork <- dataWork[c("Crop", "Irrigation",            
@@ -143,9 +163,7 @@ dataWork <- dataWork[c("Crop", "Irrigation",
 ```{r, echo=FALSE}
 # final product
 str(dataWork)
-
 head(dataWork, 20)
-
 summary(dataWork)
 
 ```
@@ -153,7 +171,8 @@ summary(dataWork)
 
 ## Compare Obs and simulated time-series 
 
-- for "dryland"" crops just to check
+- For "dryland"" crops just to check
+- All simulated values (grey) and observed values (red)
 
 ```{r GraphExample, fig.height=18,fig.width=12, echo=FALSE}
 
@@ -162,9 +181,8 @@ dataWork %>%
   filter(Irrigation =="None") %>%
   ggplot() +
   geom_point(aes(x=Date, y=Pred),colour="grey") +
-  geom_point(aes(x=Date, y=Obs, colour="darkred"), size=3) +
+  geom_point(aes(x=Date, y=Obs), size=2, colour="darkred") +
   facet_grid(Depth~Crop)
-
 
 ```
 
@@ -180,15 +198,12 @@ dataWork %>%
   facet_grid(Crop~Stage, scales ="free") +
   geom_abline(intercept = 0, slope = 1) 
 
-
 ```
 
 
-
-## Create stats function as per Gauch et al paper
-
 ```{r CreateStats, echo=FALSE, include=FALSE}
 
+# Create stats function as per Gauch et al paper
 
 gauchStats <- function(sim, meas) {
   
@@ -258,33 +273,26 @@ gauchStats(s,m)
 
 ## Calculate table of statistics
 
-```{r StatsByLayer}
-
-# TODO: Do stats by layer and drop similations that have poor fit on top layers OR
-st1_l <- dataWork %>%
-  dplyr::group_by(Crop, Stage, Depth, SurfaceKl, KLReduction_cat, RootFrontVelocity_cat, index) %>%
-  dplyr::summarise(
-    n = n(),
-    r2 = br2(Pred,Obs)*100,
-    rmse = rmse(Pred,Obs), # FIXME: what to do when there are similar rmse for different parameters?
-    r_rmse = rmse(Pred,Obs)/mean(Obs)*100,
-    nse = NSE(Pred,Obs),
-    sb = gauchStats(Pred,Obs)[1],
-  nu = gauchStats(Pred,Obs)[2],
-  lc = gauchStats(Pred,Obs)[3]) 
-
-head(st1_l,20)
-# 
-
-```
-
-
-
 
 ```{r DoStatsAll, echo=FALSE, include=FALSE}
 
-# agregate and do stats for Crop and Stage
+# Pooled by Crop only - agregate and do stats across crops only
 st1 <- dataWork %>%
+  group_by(Crop, SurfaceKl_num, KLReduction_cat, RootFrontVelocity_cat, index_crop) %>%
+  summarise(
+    n = n(),
+    r2 = round(br2(Pred,Obs)*100,0),
+    rmse = round(rmse(Pred,Obs),3),
+    r_rmse = rmse(Pred,Obs)/mean(Obs)*100, # big precision to enable cretrial of selection 
+    nse = round(NSE(Pred,Obs),1),
+    sb = gauchStats(Pred,Obs)[1],
+    nu = gauchStats(Pred,Obs)[2],
+    lc = gauchStats(Pred,Obs)[3]) 
+
+head(st1,20)
+
+# Pooled by Crop & Stage - Agregate all layers (i.e. remove Depth from grouping) and do stats for Crop and Stage
+st2 <- dataWork %>%
   dplyr::group_by(Crop, Stage, SurfaceKl, KLReduction_cat, RootFrontVelocity_cat, index) %>%
   dplyr::summarise(
     n = n(),
@@ -296,20 +304,31 @@ st1 <- dataWork %>%
   nu = gauchStats(Pred,Obs)[2],
   lc = gauchStats(Pred,Obs)[3]) 
 
-head(st1,20)
+head(st2,20)
 
-# agregate and do stats across crops only
-st2 <- dataWork %>%
-  group_by(Crop, SurfaceKl, KLReduction_cat, RootFrontVelocity_cat, index_crop) %>%
-  summarise(
+# Stats per layer
+# Test version - not used
+# TODO: Do stats by soil depth and drop similations that have poor fit on top layers OR ...
+
+st3 <- dataWork %>%
+  dplyr::group_by(Crop, Stage, Depth, SurfaceKl, KLReduction_cat, RootFrontVelocity_cat, index) %>%
+  dplyr::summarise(
     n = n(),
-    r2 = round(br2(Pred,Obs)*100,0),
-    rmse = round(rmse(Pred,Obs),3),
-    r_rmse = rmse(Pred,Obs)/mean(Obs)*100, # big precision to enable cretrial of selection 
-    nse = round(NSE(Pred,Obs),1),
+    r2 = br2(Pred,Obs)*100,
+    rmse = rmse(Pred,Obs), # FIXME: what to do when there are similar rmse for different parameters?
+    r_rmse = rmse(Pred,Obs)/mean(Obs)*100,
+    nse = NSE(Pred,Obs),
     sb = gauchStats(Pred,Obs)[1],
-    nu = gauchStats(Pred,Obs)[2],
-    lc = gauchStats(Pred,Obs)[3]) 
+  nu = gauchStats(Pred,Obs)[2],
+  lc = gauchStats(Pred,Obs)[3]) 
+
+head(st3,20)
+
+# weights per layer
+weightsPerLayer <- c(2,1,1,1,1,1,1,1,1)
+
+# STOPPED here need to change values of st1 and st2 that where inverted
+# Also need to get caegories numbers sorted
 
 ```
 
@@ -334,8 +353,6 @@ st1 %>%
 
 st1  %>% 
   ungroup() %>% # to allow mutate
-  mutate(RootFrontVelocity_cat = 
-           factor(RootFrontVelocity_cat,levels = c("Low", "Mid", "High"))) %>%
   group_by(Crop, Stage) %>%
   ggplot(aes(x = SurfaceKl, 
              y = KLReduction_cat, 
@@ -345,7 +362,10 @@ st1  %>%
   coord_equal() +
   stat_contour() + 
   facet_grid(Stage~Crop+RootFrontVelocity_cat) + 
-    scale_colour_gradientn(colours=rainbow(4))
+    scale_colour_gradientn(colours=rainbow(4)) +
+  xlab("Surface kl category") +
+  ylab("Exponential kl reduction category")+
+  theme(text = element_text(size=16))
 
 
 
@@ -442,7 +462,9 @@ sel1 %>%
   geom_line(aes(x=Date, y=Pred),colour="black") +
   facet_grid(Depth~Irrigation, scales = "free") + 
   scale_x_date(labels = date_format("%b")) + scale_shape(solid = FALSE) + 
-  geom_vline(xintercept = as.numeric(sel1$Date[estLoc]),linetype = 2)
+  geom_vline(xintercept = as.numeric(sel1$Date[estLoc]),linetype = 2) +
+  ylab("Volumetric soil moisture (mm)") +
+  theme(text = element_text(size=16))
 
 #sel1  %>%
 #  ggplot(aes(x=Pred, y=Obs,fill = factor(Stage),colour=factor(Stage))) +
@@ -484,7 +506,9 @@ sel2 <- dataWork %>%
   geom_line(aes(x=Date, y=Pred),colour="black") +
   facet_grid(Depth~Irrigation, scales = "free") + 
   scale_x_date(labels = date_format("%b")) + scale_shape(solid = FALSE) + 
-  geom_vline(xintercept = as.numeric(sel1$Date[estLoc]),linetype = 2)
+  geom_vline(xintercept = as.numeric(sel1$Date[estLoc]),linetype = 2)+
+  ylab("Volumetric soil moisture (mm)") +
+  theme(text = element_text(size=16))
 
 #sel2  %>%
 #  ggplot(aes(x=Pred, y=Obs,fill = factor(Stage),colour=factor(Stage))) +
@@ -607,33 +631,19 @@ df <- g1 %>%
   mutate(sb=sb*rmse, nu=nu*rmse, lc=lc*rmse) %>%
  # dplyr::select(-n, -r2,-rmse,-r_rmse,-nse) %>%
   dplyr::select(-n, -r2,-r_rmse,-nse) %>%
-  tidyr::gather("StatsType","StatsValue", 10:12) %>%
-  mutate(Depth = factor(Depth, levels = c("D150","D130","D110", "D90", "D70", "D50", "D30","D23","D7")))
+  tidyr::gather("StatsType","StatsValue", 10:12) # %>%
+  # mutate(Depth = factor(Depth, rev(cat_depth)))
 
-
-# Lucerne
+# graph
   df %>%
 #  filter(Crop == "Lucerne") %>%
-  ggplot(aes(x=Depth, y=StatsValue,fill=StatsType)) +
+  ggplot(aes(x=Depth, y=StatsValue*rmse,fill=StatsType)) +
   geom_bar(stat='identity') +
-  facet_grid(Crop+Stage~Irrigation,scales = "free") +
+  facet_grid(Stage+Crop~Irrigation,scales = "free") +
   coord_flip() + 
-  labs(x = "Soil depth (cm)", y = "RMSD") +
+  labs(x = "Soil depth category", y = "RMSE (fractional)") +
   theme(text = element_text(size=rel(4))) +
   theme(legend.text=element_text(size=16))
-
-
-# Ryegrass
-df %>%
-  filter(Crop == "Pasture") %>%
-  ggplot(aes(x=Depth, y=StatsValue,fill=StatsType)) +
-  geom_bar(stat='identity') +
-  facet_grid(Stage~Irrigation,scales = "free") +
-  coord_flip() + 
-  labs(x = "Soil depth (cm)", y = "RMSD") +
-  theme(text = element_text(size=rel(4))) +
-  theme(legend.text=element_text(size=16))
-
 
 ```
 
