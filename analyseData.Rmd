@@ -379,8 +379,9 @@ bf0 <- st2  %>%
   filter(Stage == "Est") %>%
   group_by(Crop) %>%
   filter(rmse<=rmseCut) %>%
+#  filter(r_rmse == min(r_rmse)) %>%
   filter(lc == max(lc)) %>%
-  filter(r_rmse == min(r_rmse))
+  filter(r_rmse == min(r_rmse) )
 
 rownames(bf0) <- paste0(bf0$Crop)
 
@@ -400,6 +401,7 @@ bf1 <- st2  %>%
     (Crop == "Pasture" &  Stage == "Reg" & RootFrontVelocity == RVF_rye_est)) %>% 
   group_by(Crop, Stage) %>%
   filter(rmse<=rmseCut) %>%
+ # filter(r_rmse == min(r_rmse)) %>%
   filter(lc == max(lc)) %>%
   filter(r_rmse == min(r_rmse) )
   
@@ -621,7 +623,7 @@ df <- g1 %>%
 
 ```
 
-```{r PinPointBestFit}
+```{r PinPointBestFit, echo = FALSE, fig.height=12,fig.width=12, echo=FALSE}
 
 dfTemp <- st2 %>%
   group_by(Crop, Stage) %>%
