@@ -345,14 +345,42 @@ head(st2)
 
 ```{r BestFitFinder1, echo=FALSE}
 
+# Define a selection criteria
+
+# NOT tested:
+  # mutate(mse = rmse^2, nlc = 100-lc, mse_nlc = mse*nlc ) %>% # creates metrics for selecting best fit
+  # filter(mse_nlc == min (mse_nlc)) %>%
+  # filter(r_rmse == min(r_rmse) ) %>%
+  # dplyr::select(-mse, -nlc, -mse_nlc)
+
+
+# Define a quantile of rmse to explore populations
+p <- 0.25
+
+# st2 %>% group_by(Crop,Stage) %>% mutate(Q = quantile(rmse,probs=p)) %>% summary() # FIXME: does not calculate quartile per group
+
+# workouround
+Q_luc_est <- st2 %>% subset(Crop == "Lucerne" & Stage == "Est") %>% mutate(Q = quantile(rmse,probs=p))
+Q_luc_reg <- st2 %>% subset(Crop == "Lucerne" & Stage == "Reg") %>% mutate(Q = quantile(rmse,probs=p))  
+Q_pas_est <- st2 %>% subset(Crop == "Pasture" & Stage == "Est") %>% mutate(Q = quantile(rmse,probs=p)) 
+Q_pas_reg <- st2 %>% subset(Crop == "Pasture" & Stage == "Reg") %>% mutate(Q = quantile(rmse,probs=p))  
+
+
+# find quartiles for each crop/stage FIXME: Sure there's a way to do this in groups 
+st2 <- st2 %>% mutate(rmseCut = ifelse(grepl("Lucerne_Est", index), Q_luc_est$Q[1],
+                               ifelse(grepl("Lucerne_Reg", index), Q_luc_reg$Q[1],
+                                   ifelse(grepl("Pasture_Est", index), Q_pas_est$Q[1],
+                                      ifelse (grepl("Pasture_Reg", index), Q_pas_reg$Q[1], NA)))
+                               ))
+summary(st2)
 
 # finds lowest r_rmse for the establishment phase first
-bf0 <- st2  %>% 
-  filter(Stage=="Est") %>%
+bf0 <- st2  %>%
+  filter(Stage == "Est") %>%
   group_by(Crop) %>%
-  filter(r_rmse == min(r_rmse) ) %>%
-  filter(lc == max(lc)) #%>%
- # filter(r_rmse == min(r_rmse) ) 
+  filter(rmse<=rmseCut) %>%
+  filter(lc == max(lc)) %>%
+  filter(r_rmse == min(r_rmse))
 
 rownames(bf0) <- paste0(bf0$Crop)
 
@@ -369,12 +397,12 @@ bf1 <- st2  %>%
     index == selecParamsEst[1] | # bring back only selected establishmnet combinations 
     index == selecParamsEst[2] |
     (Crop == "Lucerne" &  Stage == "Reg" & RootFrontVelocity == RVF_luc_est) |   
-    (Crop == "Pasture" &  Stage == "Reg" & RootFrontVelocity == RVF_rye_est)
-    ) %>% 
+    (Crop == "Pasture" &  Stage == "Reg" & RootFrontVelocity == RVF_rye_est)) %>% 
   group_by(Crop, Stage) %>%
-  filter(r_rmse == min(r_rmse) ) %>%
-  filter(lc == max(lc))
-
+  filter(rmse<=rmseCut) %>%
+  filter(lc == max(lc)) %>%
+  filter(r_rmse == min(r_rmse) )
+  
 rownames(bf1) <- paste0(bf1$Crop,".",bf1$Stage)
 
 t(bf1) %>%
@@ -561,8 +589,6 @@ g1 %>%
   theme(legend.text=element_text(size=16))
 ```
 
-
-
 ## Partition of RMSE into Gauch fractions
 
 - Standard bias (SB)
@@ -574,10 +600,10 @@ g1 %>%
 ```{r GauchStatsByDepth, echo = TRUE, fig.height=12,fig.width=12, echo=FALSE}
 
 df <- g1 %>%
-  mutate(sb=sb*rmse, nu=nu*rmse, lc=lc*rmse) %>%
+  mutate(mse = rmse^2, sb=sb*mse, nu=nu*mse, lc=lc*mse) %>%
  # dplyr::select(-n, -r2,-rmse,-r_rmse,-nse) %>%
-  dplyr::select(-n, -r2,-r_rmse,-nse) %>%
-  tidyr::gather("StatsType","StatsValue", 9:11) # %>%
+  dplyr::select(-n, -r2,-r_rmse,-nse, -rmse) %>%
+  tidyr::gather("StatsType","StatsValue", 8:10) # %>%
   # mutate(Depth = factor(Depth, rev(cat_depth)))
 
 # graph
@@ -585,14 +611,35 @@ df <- g1 %>%
 #  filter(Crop == "Lucerne") %>%
   ungroup() %>%  
   mutate(Depth = factor(Depth, level = rev(Depth))) %>%
-  ggplot(aes(x=Depth, y=StatsValue*rmse,fill=rev(StatsType))) +
+  ggplot(aes(x=Depth, y=StatsValue,fill=rev(StatsType))) +
   geom_bar(stat='identity') +
   facet_grid(Stage+Crop~Irrigation,scales = "free") +
   coord_flip() + 
-  labs(x = "Soil depth (cm)", y = "RMSE (fractional)") +
+  labs(x = "Soil depth (cm)", y = "MSE") +
   theme(text = element_text(size=rel(4))) +
   theme(legend.text=element_text(size=16))
 
 ```
 
+```{r PinPointBestFit}
+
+dfTemp <- st2 %>%
+  group_by(Crop, Stage) %>%
+  dplyr::select(lc, r_rmse) %>%
+  summarise_each(funs(max, min)) %>%
+  dplyr::select(Crop, Stage, lc_max,r_rmse_min)
+
+st2 %>%
+  mutate(BestFit = ifelse(index %in% bf1$index,"Best", "NotBest")) %>%
+  mutate(BestFit = factor(BestFit, levels=c("NotBest", "Best"))) %>%
+  ggplot(aes(x=lc, y=r_rmse)) +
+  geom_point(aes(colour=factor(BestFit), size=factor(BestFit), shape=factor(BestFit))) +
+  facet_grid(Stage~Crop, scales= "free") +
+  xlab("Lack of correlation (LC, %MSE) ") +
+  ylab(" Relative RMSE (% mean)") +
+  geom_hline(data=dfTemp, aes(yintercept=r_rmse_min), linetype=2) +
+  geom_vline(data=dfTemp, aes(xintercept=lc_max), linetype=2)
+
+
+```
 
