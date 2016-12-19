@@ -134,9 +134,8 @@ summary(dataWork)
 ```
 
 
-## Compare Obs and simulated time-series 
+## Check Obs and simulated time-series for dryland
 
-- For "dryland"" crops just to check
 - All simulated values (grey) and observed values (red)
 
 ```{r GraphExample, fig.height=18,fig.width=12, echo=FALSE}
@@ -152,7 +151,7 @@ dataWork %>%
 
 ```
 
-## XY graph for Prediced x Obs for whole dataset now
+## XY graph for Pred x Obs for whole dataset now
 
 ```{r XYgraph , fig.height=18,fig.width=12, echo=FALSE}
 dataWork %>%
@@ -162,7 +161,10 @@ dataWork %>%
               aes(colour=factor(Depth))) +
   geom_point() +
   facet_grid(Crop~Stage, scales ="free") +
-  geom_abline(intercept = 0, slope = 1) 
+  geom_abline(intercept = 0, slope = 1) + 
+  coord_fixed(ratio = 1) +
+  xlim(0,max(dataWork$Pred,dataWork$Obs)) +
+  ylim(0,max(dataWork$Pred,dataWork$Obs))
 
 ```
 
