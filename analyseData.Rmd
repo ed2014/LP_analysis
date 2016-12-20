@@ -83,36 +83,6 @@ head(dataWork)
 summary(dataWork)
 str(dataWork)
 
-
-# create indexes to call later
-dataWork$index <- paste0(dataWork$Crop, "_",
-                         dataWork$Stage, "_SK:",
-                              dataWork$SurfaceKl, "_KR:",
-                              dataWork$KLReduction, "_RF:",
-                              dataWork$RootFrontVelocity)
-
-dataWork$index <- as.factor(dataWork$index)
-
-# pooled by crop (excludes stage)
-dataWork$index_crop <- paste0(dataWork$Crop, "_SK",
-                              dataWork$SurfaceKl, "_KR:",
-                              dataWork$KLReduction, "_RF:",
-                              dataWork$RootFrontVelocity)
-
-dataWork$index_crop <- as.factor(dataWork$index_crop)
-
-# re-order fators (ensure Obs is the LAST one)
-dataWork <- dataWork[c("Crop", "Irrigation",            
-                       "Depth",
-                       "Stage",
-                       "Date",
-                       "SurfaceKl", 
-                       "KLReduction", 
-                       "RootFrontVelocity", 
-                       "index",
-                       "index_crop",
-                       "Pred", "Obs")]
-
 ```
 
 
@@ -214,12 +184,10 @@ gauchStats(s,m)
 
 ```
 
-
 ## Creates a generic set of stats to output that includes gauch
 
 ```{r}
-
-# Create a tailored common dplyr thread that do the stats for the df you have
+# Create a tailored common function that do the stats and includes the gauch functionality
 doStats <-  function (x) {
     library(dplyr)
     x %>% dplyr::summarise(
@@ -232,143 +200,210 @@ doStats <-  function (x) {
     nu = gauchStats(Pred,Obs)[2],
     lc = gauchStats(Pred,Obs)[3]) 
 }
-
-
-
-# statsFunc <- function (sim, meas){
-#     n = n()
-#     r2 = gauchStats(sim,meas)[5]
-#     rmse = rmse(sim,meas)
-#     r_rmse = rmse(sim,Obs)/mean(meas)*100 # big precision to enable cretrial of selection 
-#     nse = NSE(sim,meas)
-#     sb = gauchStats(sim,meas)[1]
-#     nu = gauchStats(sim,meas)[2]
-#     lc = gauchStats(sim,meas)[3]
-#     
-#     out <- c(n, r2, rmse, r_rmse, nse, sb, nu, lc)
-#     
-#     return(out)
-# } 
 ```
 
-```{r}
-# dataWork %>%
-#   group_by(Crop, SurfaceKl, KLReduction, RootFrontVelocity, index, index_crop) %>%
-#   summarise(
-#     n = n(),
-#     r2 = gauchStats(Pred,Obs)[5],
-#     rmse = gauchStats(Pred,Obs)[3],
-#     r_rmse = gauchStats(Pred,Obs)[4]*100, # big precision to enable cretrial of selection 
-#     nse = gauchStats(Pred,Obs)[5],
-#     sb = gauchStats(Pred,Obs)[6],
-#     nu = gauchStats(Pred,Obs)[7],
-#     lc = gauchStats(Pred,Obs)[8]) 
+## Create Indexes for data agregation for stats
 
-dataWork  %>%
-group_by(Crop, SurfaceKl, KLReduction, RootFrontVelocity, index, index_crop) %>%
-doStats()
+- Combine Pred x Obs in different forms to do stats
+- E.g. Data for "all 4 treatments and depths together" but separated by "crop"" and "stage of growth""
 
+```{r CreateIndexes}
+
+# pooled by crop ---------------------------------------
+dataWork$index_crop <- paste0(dataWork$Crop, "_SK",
+                              dataWork$SurfaceKl, "_KR:",
+                              dataWork$KLReduction, "_RF:",
+                              dataWork$RootFrontVelocity)
+
+dataWork$index_crop <- as.factor(dataWork$index_crop)
+
+
+# pooled by crop and stage ---------------------------------------------
+dataWork$index_crop_stage <- paste0(dataWork$Crop, "_",
+                         dataWork$Stage, "_SK:",
+                              dataWork$SurfaceKl, "_KR:",
+                              dataWork$KLReduction, "_RF:",
+                              dataWork$RootFrontVelocity)
+
+dataWork$index_crop_stage <- as.factor(dataWork$index_crop_stage)
+
+
+# pooled by crop, stage and depth ---------------------------------------
+dataWork$index_crop_stage_depth <- paste0(dataWork$Crop, "_",
+                              dataWork$Stage, "_Dp:",
+                              dataWork$Depth, "_SK:",
+                              dataWork$SurfaceKl, "_KR:",
+                              dataWork$KLReduction, "_RF:",
+                              dataWork$RootFrontVelocity)
+
+dataWork$index_crop_stage_depth <- as.factor(dataWork$index_crop_stage_depth)
+
+# re-order fators (ensure Obs is the LAST one)
+dataWork <- dataWork[c("Crop", "Irrigation",            
+                       "Depth",
+                       "Stage",
+                       "Date",
+                       "SurfaceKl", 
+                       "KLReduction", 
+                       "RootFrontVelocity",
+                       "index_crop",
+                       "index_crop_stage",
+                       "index_crop_stage_depth",
+                       "Pred", "Obs")]
 ```
 
-## Calculate table of statistics
+## Apply stats function on dataset
 
+- By crop
 
 ```{r DoStatsAll, echo=FALSE, include=TRUE}
-
 # Pooled by Crop only - agregate and do stats across crops only
-statDF_cropOnly <- dataWork %>%
-  group_by(Crop, SurfaceKl, KLReduction, RootFrontVelocity, index_crop) %>%
-  doStats()
+statDF_cropOnly <- dataWork  %>%
+group_by(Crop, SurfaceKl, KLReduction, RootFrontVelocity, index_crop) %>%
+doStats() 
 
 #summary(statDF_cropOnly)
-
-statDF_cropOnly
-
-
-# Stats per layer
-# Test version - not used
-# TODO: Do stats by soil depth and drop similations that have poor fit on top layers OR ...
-
-
-
+summary(statDF_cropOnly)
 ```
 
-```{r}
+- By crop & Stage
 
+```{r}
 # Pooled by Crop & Stage - Agregate all layers (i.e. remove Depth from grouping) and do stats for Crop and Stage
 statDF_cropStage <- dataWork %>%
-  dplyr::group_by(Crop, Stage, SurfaceKl, KLReduction, RootFrontVelocity, index) %>%
+  dplyr::group_by(Crop, Stage, SurfaceKl, KLReduction, RootFrontVelocity, index_crop_stage) %>%
   doStats()
 
-statDF_cropStage
+summary(statDF_cropStage)
   
+```
+
+- By crop & stage & depth - then average by depth
+
+```{r}
+# Pooled by Crop & Stage & Depth
+statDF_cropStageDepth <- dataWork %>%
+  dplyr::group_by(Crop, Stage, Depth, SurfaceKl, KLReduction, RootFrontVelocity, 
+                  index_crop,
+                  index_crop_stage, 
+                  index_crop_stage_depth) %>%
+  doStats() 
+
+summary(statDF_cropStageDepth)
+
+```
+
+- Crop & Depth
+
+```{r}
+
+# Pooled by Crop & Depth
+statDF_cropDepth <- dataWork %>%
+  dplyr::group_by(Crop, Depth, SurfaceKl, KLReduction, RootFrontVelocity, 
+                  index_crop,
+                  index_crop_stage_depth) %>%
+  doStats() 
+
+summary(statDF_cropDepth)
+
+```
+
+## Find and exclude layers with poor fit
+
+- Agregated by crop
+
+- Graphs show the number of "excluded" simulations at a given depth
+
+```{r ExcludeBadLayer}
+
+# Find the 75% percentile for:
+
+cutByLayer_luc <- quantile(statDF_cropStageDepth$r_rmse[statDF_cropStageDepth$Crop == "Lucerne"])[[4]] # lucerne
+
+cutByLayer_pas <- quantile(statDF_cropStageDepth$r_rmse[statDF_cropStageDepth$Crop == "Pasture"])[[4]] # pasture
+
+# Find simulations with layers that have simulations worst than upper quartile of rmse
+
+# By crop only
+remove_bad_ByDepth_Crop <- statDF_cropStageDepth %>%
+  rowwise() %>%
+  filter(ifelse(Crop == "Lucerne", r_rmse>cutByLayer_luc, r_rmse>cutByLayer_pas)) %>%
+  dplyr::select(index_crop, Crop, Depth) %>%
+  unique()
+
+summary(remove_bad_ByDepth_Crop)
+
 ```
 
 ```{r}
-summary(statDF_cropStage)
+remove_bad_ByDepth_Crop %>%
+  mutate(Depth = as.numeric(as.character(Depth)))  %>%
+  ggplot(aes(x=Depth)) +
+  geom_histogram(aes(y=..count..)) +
+  facet_grid(.~Crop)
 ```
 
-```{r, fig.height=12,fig.width=12, echo=FALSE}
+- Agregated by crop and stage
 
-statDF_cropStageDepth <- dataWork %>%
-  dplyr::group_by(Crop, Stage, Depth, SurfaceKl, KLReduction, RootFrontVelocity, index) %>%
-  doStats()
-  
-summary(statDF_cropStageDepth)
+```{r}
+# By crop and stage
+remove_bad_ByDepth_CropStage <- statDF_cropStageDepth %>%
+  rowwise() %>%
+  filter(ifelse(Crop == "Lucerne", r_rmse>cutByLayer_luc, r_rmse>cutByLayer_pas)) %>%
+  dplyr::select(index_crop_stage, Crop, Stage, Depth) %>%
+  unique()
 
-# weights per layer
-#weightsPerLayer <- c(2,1,1,1,1,1,1,1,1)
+summary(remove_bad_ByDepth_CropStage)
 
-# STOPPED here need to change values of statDF_cropOnly and statDF_cropStage that where inverted
-# Also need to get caegories numbers sorted
+
 ```
 
-## Compare stats
+```{r}
+remove_bad_ByDepth_CropStage %>%
+  mutate(Depth = as.numeric(as.character(Depth)))  %>%
+  ggplot(aes(x=Depth)) +
+  geom_histogram(aes(y=..count..)) +
+  facet_grid(Stage~Crop)
+```
 
-- Many stats criteria are "highly" correlated (e.g. nse and r_rmse x rmse)
-- Makes sense to combine criteria with low correclation
-- Chosen r_rmse and LC at the moment
+## Compare and select which stats to use
+
+- Need a criteria for deciding which stats will be used 
+- Many stats are "highly" correlated (e.g. see nse x r_rmse x rmse)
+- Logic is to combine stats that have low correlation with each other
+- Have chosen r_rmse and LC at the moment
 
 ```{r AnalyseStats, fig.height=18,fig.width=12, echo=FALSE}
 
-# relationship between stats
+# relationship between stats (Obs: it crashes if try to plot Crop+Stage or Crop+Stage+Depth - too heavy)
 plot(statDF_cropOnly[,7:13], col=statDF_cropOnly$Crop)
 legend(7,4.3,unique(statDF_cropOnly$Crop),col=1:length(statDF_cropOnly$Crop),pch=1)
-#ggpairs(statDF_cropOnly[,7:13])
-#ggpairs(statDF_cropOnly[,7:13]) # crashes with statDF_cropStage - too heavy
 
 ```
 
-```{r, fig.height=18,fig.width=12, echo=FALSE}
+## Map stats for all parameter combinations
 
-# create categories of r_rmse
+- Idea: do analysis separated by luccern and pasture
 
-# statDF_cropStage$stats_cat<-cut(statDF_cropStage$r_rmse, seq(min(statDF_cropStage$r_rmse)*0.9,
-#                                                     max(statDF_cropStage$r_rmse)*1.1,
-#                                                     5, right=TRUE))
+```{r, fig.height=18,fig.width=12, echo=FALSE, warning=FALSE}
 
-statDF_cropStage$stats_cat<-cut(statDF_cropStage$r_rmse, breaks = 100)
+df_selected <- statDF_cropStage %>% 
+  filter(!(index_crop_stage %in% remove_bad_ByDepth_CropStage))
+  
+# Create categories of r_rmse (to see colour differences)
+df_selected$stats_cat <- cut(df_selected$r_rmse, breaks = 20)
 
-
-
-lv <- length(unique(statDF_cropStage$stats_cat))
+lv <- length(unique(df_selected$stats_cat))
 
 colors <- colorRampPalette(c("blue", "green", "yellow", "red"))(lv)
-# colors <- colorRampPalette(c("green", "yellow","red"))(lv)
 
-statDF_cropStage$stats_cat <- factor(statDF_cropStage$stats_cat)
+df_selected$stats_cat <- factor(df_selected$stats_cat)
 
-N <- nlevels(statDF_cropStage$stats_cat)
+N <- nlevels(df_selected$stats_cat)
 
 # Map rmsd
-statDF_cropStage  %>% 
- # filter(Crop == "Lucerne") %>%
+df_selected  %>% 
   ungroup() %>% # to allow mutate
-  # mutate(
-  #   SurfaceKl = as.factor(SurfaceKl),
-  #   KLReduction = as.factor(KLReduction),
-  #   RootFrontVelocity = as.factor(RootFrontVelocity)
-  # ) %>%
   group_by(Crop, Stage) %>%
   ggplot(aes(x = SurfaceKl, 
              y = KLReduction, 
@@ -378,19 +413,15 @@ statDF_cropStage  %>%
   coord_equal() +
   stat_contour() + 
   facet_grid(Stage~Crop+RootFrontVelocity) + 
-#  scale_colour_gradientn(colours=terrain.colors(10)) + # FIXME: not working as wanted
   scale_fill_manual(values=colors, breaks=levels(statDF_cropStage$stats_cat)[seq(1, N, by=1)])+
   xlab("Surface kl category") +
   ylab("Exponential kl reduction category")+
   theme(text = element_text(size=16)) # + theme(axis.text.x = element_text(angle = 90, hjust = -0.5))
 
-# add continuous value sof factor (parameters)
-# statDF_cropOnly <- merge(statDF_cropOnly,kl_red_cats,by="KLReduction_cat")
-# statDF_cropStage <- merge(statDF_cropOnly,kl_surface_cats,by="SurfaceKl")
-# statDF_cropStage <- merge(statDF_cropOnly,RFV_cats,by="RootFrontVelocity")
 ```
 
-```{r, fig.height=18,fig.width=12, echo=FALSE}
+```{r, fig.height=8,fig.width=8, echo=FALSE}
+
 # Sensitivity plots for lc and rmse
 statDF_cropStage %>%
   ungroup() %>% # to allow mutate
@@ -399,6 +430,7 @@ statDF_cropStage %>%
   ggplot(aes(x=r_rmse, colour=factor(SurfaceKl),fill=factor(SurfaceKl))) +
   geom_density(alpha=0.2) + 
   facet_grid(Stage~Crop)
+
 ```
 
 ```{r}
@@ -438,10 +470,10 @@ head(statDF_cropStage)
  # statDF_cropStage %>% group_by(Crop,Stage) %>% mutate(Q = quantile(rmse,probs=p)) %>% summary() 
 
 #Find good fit 25% population quartiles for each crop/stage FIXME: Sure there's a way to do this in groups (not used)
-statDF_cropStage <- statDF_cropStage %>% mutate(rmseCut = ifelse(grepl("Lucerne_Est", index), Q_luc_est$Q[1],
-                                ifelse(grepl("Lucerne_Reg", index), Q_luc_reg$Q[1],
-                                    ifelse(grepl("Pasture_Est", index), Q_pas_est$Q[1],
-                                       ifelse (grepl("Pasture_Reg", index), Q_pas_reg$Q[1], NA)))
+statDF_cropStage <- statDF_cropStage %>% mutate(rmseCut = ifelse(grepl("Lucerne_Est", index_crop_stage), Q_luc_est$Q[1],
+                                ifelse(grepl("Lucerne_Reg", index_crop_stage), Q_luc_reg$Q[1],
+                                    ifelse(grepl("Pasture_Est", index_crop_stage), Q_pas_est$Q[1],
+                                       ifelse (grepl("Pasture_Reg", index_crop_stage), Q_pas_reg$Q[1], NA)))
                                 ))
 summary(statDF_cropStage)
 
@@ -467,7 +499,7 @@ rownames(bestFit_Estab) <- paste0(bestFit_Estab$Crop)
 t(bestFit_Estab) %>%
   kable(format = "markdown")
 
-selecParamsEst <- as.character(unique(bestFit_Estab$index))
+selecParamsEst <- as.character(unique(bestFit_Estab$index_crop_stage))
 RVF_luc_est <- bestFit_Estab[bestFit_Estab$Crop=="Lucerne",]$RootFrontVelocity
 RVF_rye_est <- bestFit_Estab[bestFit_Estab$Crop=="Pasture",]$RootFrontVelocity
 ```
@@ -476,8 +508,8 @@ RVF_rye_est <- bestFit_Estab[bestFit_Estab$Crop=="Pasture",]$RootFrontVelocity
 # now select best fit for regrowth by setting the RFV to the selected in the establishment phase
 bestFit_Reg <- statDF_cropStage  %>% 
   filter(  
-    index == selecParamsEst[1] | # bring back only selected establishmnet combinations 
-    index == selecParamsEst[2] |
+    index_crop_stage == selecParamsEst[1] | # bring back only selected establishmnet combinations 
+    index_crop_stage == selecParamsEst[2] |
     (Crop == "Lucerne" &  Stage == "Reg" & RootFrontVelocity == RVF_luc_est) |   
     (Crop == "Pasture" &  Stage == "Reg" & RootFrontVelocity == RVF_rye_est)) %>% 
   group_by(Crop, Stage) %>%
@@ -500,14 +532,14 @@ t(bestFit_Reg) %>%
 
 # Input best fits here (FIXME: Automate this as a function from paramater estimation)
 
-selecParams <- as.character(unique(bestFit_Reg$index))
+selecParams <- as.character(unique(bestFit_Reg$index_crop_stage))
 
 sel1 <- dataWork %>%
   filter(
     # establisment
-    index == selecParams[1] | # watch for this conventions of names (FIXME)
+    index_crop_stage == selecParams[1] | # watch for this conventions of names (FIXME)
     # regrowth phase
-    index == selecParams[2]
+    index_crop_stage == selecParams[2]
   ) 
 
 # finds the closest point to the date of establihment
@@ -555,9 +587,9 @@ sel1  %>%
 sel2 <- dataWork %>%
   filter(
     # establisment
-    index == selecParams[3] |
+    index_crop_stage == selecParams[3] |
     # regrowth phase
-    index == selecParams[4]
+    index_crop_stage == selecParams[4]
   ) 
 
 
@@ -689,7 +721,7 @@ df <- g1 %>%
 #   dplyr::select(Crop, Stage, lc_max,r_rmse_min)
 
 data_bf <- statDF_cropStage %>%
-  mutate(BestFit = ifelse(index %in% bestFit_Reg$index,"Best", "NotBest")) %>%
+  mutate(BestFit = ifelse(index_crop_stage %in% bestFit_Reg$index_crop_stage,"Best", "NotBest")) %>%
   mutate(BestFit = factor(BestFit, levels=c("NotBest", "Best")))
 
 bound_bf <- data_bf %>%
