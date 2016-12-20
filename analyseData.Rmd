@@ -403,7 +403,7 @@ legend(7,4.3,unique(statDF_cropOnly$Crop),col=1:length(statDF_cropOnly$Crop),pch
 ```{r, fig.height=18,fig.width=12, echo=FALSE, warning=FALSE}
 
 df_selected <- statDF_cropStage %>% 
-  filter(!(index_crop_stage %in% remove_bad_ByDepth_CropStage))
+  filter(!(index_crop_stage %in% remove_badLayer_byCropStage))
   
 # Create categories of r_rmse (to see colour differences)
 df_selected$stats_cat <- cut(df_selected$r_rmse, breaks = 20)
@@ -438,7 +438,7 @@ df_selected  %>%
 ```{r, fig.height=8,fig.width=8, echo=FALSE}
 
 # Sensitivity plots for lc and rmse
-statDF_cropStage %>%
+df_selected %>%
   ungroup() %>% # to allow mutate
   # mutate(RootFrontVelocity = 
   #          factor(RootFrontVelocity,levels = c("Low", "Mid", "High"))) %>%
@@ -449,7 +449,7 @@ statDF_cropStage %>%
 ```
 
 ```{r}
-head(statDF_cropStage)
+head(df_selected)
 ```
 
 # Calculates the best fit (lowest r_rmse)
@@ -470,8 +470,7 @@ head(statDF_cropStage)
   # filter(r_rmse == min(r_rmse) ) %>%
   # dplyr::select(-mse, -nlc, -mse_nlc)
 
-
-
+statDF_cropStage <- df_selected
 
 # Finds selected qualtile threshold of RMSE (i.e. lowest X% of RMSE values) - not used yet
  p <- 0.25
@@ -491,10 +490,6 @@ statDF_cropStage <- statDF_cropStage %>% mutate(rmseCut = ifelse(grepl("Lucerne_
                                        ifelse (grepl("Pasture_Reg", index_crop_stage), Q_pas_reg$Q[1], NA)))
                                 ))
 summary(statDF_cropStage)
-
-
-
-
 
 
 ```
@@ -517,9 +512,11 @@ t(bestFit_Estab) %>%
 selecParamsEst <- as.character(unique(bestFit_Estab$index_crop_stage))
 RVF_luc_est <- bestFit_Estab[bestFit_Estab$Crop=="Lucerne",]$RootFrontVelocity
 RVF_rye_est <- bestFit_Estab[bestFit_Estab$Crop=="Pasture",]$RootFrontVelocity
+
 ```
 
 ```{r, fig.height=12,fig.width=12, echo=FALSE, warning=FALSE}
+
 # now select best fit for regrowth by setting the RFV to the selected in the establishment phase
 bestFit_Reg <- statDF_cropStage  %>% 
   filter(  
@@ -566,6 +563,7 @@ sel1 %>%
   geom_point(aes(x=Date, y=Obs), size=2, shape = 1) +
   geom_line(aes(x=Date, y=Pred),colour="black") +
   facet_grid(Depth~Irrigation, scales = "free") + 
+   facet_grid(Depth~Irrigation) + 
   scale_x_date(labels = date_format("%b")) + scale_shape(solid = FALSE) + 
   geom_vline(xintercept = as.numeric(sel1$Date[estLoc]),linetype = 2) +
   ylab("Volumetric soil moisture (mm)") +
@@ -613,7 +611,7 @@ sel2 <- dataWork %>%
   ggplot() +
   geom_point(aes(x=Date, y=Obs), size=2, shape = 1) +
   geom_line(aes(x=Date, y=Pred),colour="black") +
-  facet_grid(Depth~Irrigation, scales = "free") + 
+  facet_grid(Depth~Irrigation) + 
   scale_x_date(labels = date_format("%b")) + scale_shape(solid = FALSE) + 
   geom_vline(xintercept = as.numeric(sel1$Date[estLoc]),linetype = 2)+
   ylab("Volumetric soil moisture (mm)") +
