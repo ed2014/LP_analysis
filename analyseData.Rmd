@@ -238,6 +238,17 @@ dataWork$index_crop_stage_depth <- paste0(dataWork$Crop, "_",
 
 dataWork$index_crop_stage_depth <- as.factor(dataWork$index_crop_stage_depth)
 
+
+# pooled by crop and depth ---------------------------------------
+dataWork$index_crop_depth <- paste0(dataWork$Crop, "_",
+                              dataWork$Depth, "_SK:",
+                              dataWork$SurfaceKl, "_KR:",
+                              dataWork$KLReduction, "_RF:",
+                              dataWork$RootFrontVelocity)
+
+dataWork$index_crop_depth <- as.factor(dataWork$index_crop_depth)
+
+
 # re-order fators (ensure Obs is the LAST one)
 dataWork <- dataWork[c("Crop", "Irrigation",            
                        "Depth",
@@ -248,11 +259,12 @@ dataWork <- dataWork[c("Crop", "Irrigation",
                        "RootFrontVelocity",
                        "index_crop",
                        "index_crop_stage",
+                       "index_crop_depth",
                        "index_crop_stage_depth",
                        "Pred", "Obs")]
 ```
 
-## Apply stats function on dataset
+## Calculate stats
 
 - By crop
 
@@ -284,7 +296,7 @@ summary(statDF_cropStage)
 # Pooled by Crop & Stage & Depth
 statDF_cropStageDepth <- dataWork %>%
   dplyr::group_by(Crop, Stage, Depth, SurfaceKl, KLReduction, RootFrontVelocity, 
-                  index_crop,
+                  index_crop,   # has to keep other indexes as we'll use them later
                   index_crop_stage, 
                   index_crop_stage_depth) %>%
   doStats() 
@@ -301,7 +313,7 @@ summary(statDF_cropStageDepth)
 statDF_cropDepth <- dataWork %>%
   dplyr::group_by(Crop, Depth, SurfaceKl, KLReduction, RootFrontVelocity, 
                   index_crop,
-                  index_crop_stage_depth) %>%
+                  index_crop_depth) %>%
   doStats() 
 
 summary(statDF_cropDepth)
@@ -310,13 +322,15 @@ summary(statDF_cropDepth)
 
 ## Find and exclude layers with poor fit
 
-- Agregated by crop
+- Start with Crop x Stage x Depth combinations (i.e. statDF_cropStageDepth)
 
 - Graphs show the number of "excluded" simulations at a given depth
 
+- use r_rmse as criteria
+
 ```{r ExcludeBadLayer}
 
-# Find the 75% percentile for:
+# Find the 75% percentile for each crop:
 
 cutByLayer_luc <- quantile(statDF_cropStageDepth$r_rmse[statDF_cropStageDepth$Crop == "Lucerne"])[[4]] # lucerne
 
@@ -324,42 +338,43 @@ cutByLayer_pas <- quantile(statDF_cropStageDepth$r_rmse[statDF_cropStageDepth$Cr
 
 # Find simulations with layers that have simulations worst than upper quartile of rmse
 
-# By crop only
-remove_bad_ByDepth_Crop <- statDF_cropStageDepth %>%
+# Exclude any parameter combination that gave poor fit in a given layer (Crop and Stage)
+remove_badLayer_byCrop <- statDF_cropStageDepth %>%
   rowwise() %>%
   filter(ifelse(Crop == "Lucerne", r_rmse>cutByLayer_luc, r_rmse>cutByLayer_pas)) %>%
   dplyr::select(index_crop, Crop, Depth) %>%
   unique()
 
-summary(remove_bad_ByDepth_Crop)
+summary(remove_badLayer_byCrop)
 
 ```
 
 ```{r}
-remove_bad_ByDepth_Crop %>%
+remove_badLayer_byCrop %>%
   mutate(Depth = as.numeric(as.character(Depth)))  %>%
   ggplot(aes(x=Depth)) +
   geom_histogram(aes(y=..count..)) +
   facet_grid(.~Crop)
+
 ```
 
 - Agregated by crop and stage
 
 ```{r}
 # By crop and stage
-remove_bad_ByDepth_CropStage <- statDF_cropStageDepth %>%
+remove_badLayer_byCropStage <- statDF_cropStageDepth %>%
   rowwise() %>%
   filter(ifelse(Crop == "Lucerne", r_rmse>cutByLayer_luc, r_rmse>cutByLayer_pas)) %>%
   dplyr::select(index_crop_stage, Crop, Stage, Depth) %>%
   unique()
 
-summary(remove_bad_ByDepth_CropStage)
+summary(remove_badLayer_byCropStage)
 
 
 ```
 
 ```{r}
-remove_bad_ByDepth_CropStage %>%
+remove_badLayer_byCropStage %>%
   mutate(Depth = as.numeric(as.character(Depth)))  %>%
   ggplot(aes(x=Depth)) +
   geom_histogram(aes(y=..count..)) +
