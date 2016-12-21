@@ -71,7 +71,6 @@ estDate <- "2012-06-01" # FIXME: find a more functional criteria later
 dataWork$Stage <- as.factor(ifelse(dataWork$Date<=estDate,"Est","Reg"))
 
 
-
 # Check levels
 levels(dataWork$Depth)
 levels(dataWork$SurfaceKl)
@@ -95,7 +94,7 @@ str(dataWork)
 
 ```
 
-```{r}
+```{r, include = FALSE}
 head(dataWork, 20)
 ```
 
@@ -103,10 +102,15 @@ head(dataWork, 20)
 summary(dataWork)
 ```
 
+## Check Observed and Simulated time-series for data subset
 
-## Check Obs and simulated time-series for dryland
+- Show time-series for dryland crops
 
-- All simulated values (grey) and observed values (red)
+- All simulated parameter combinations (grey) and observed values (red)
+
+- Note that in some cases observations are in the edge of simulation's range. To discuss:
+
+- <span style="color:red">Is this a sign that parameter ranges were not ideal???</span>  
 
 ```{r GraphExample, fig.height=18,fig.width=12, echo=FALSE}
 
@@ -121,7 +125,11 @@ dataWork %>%
 
 ```
 
-## XY graph for Pred x Obs for whole dataset now
+## Predicted x Observed
+
+- For whole dataset (all parameter combinations)
+- X=Y line in black (1:1 line)
+- linear regression in gray
 
 ```{r XYgraph , fig.height=18,fig.width=12, echo=FALSE}
 dataWork %>%
@@ -138,7 +146,14 @@ dataWork %>%
 
 ```
 
-## Create gauch stats function
+## Create Gauch stats function
+
+- CrFunction to calculate RMSE components
+- Standard bias (SB)
+- Non unit (NU)
+- Lack of correlation (LC)
+- Aim is to maximise LC as this indicates random error distribution
+- Reference: Gauch Jr, H.G., Hwang, J.T.G., Fick, G.W., 2003. Model evaluation by comparison of model-based predictions and measured values. Agron. J. 95, 1442-1446
 
 ```{r CreateStats, echo=FALSE, include=FALSE}
 
@@ -176,18 +191,31 @@ gauchStats <- function(sim, meas) {
 
 }
 
+
+
+```
+
+- Test Gauch stats
+- Result has to be: 76.5  5.2 18.2 99.9  7.1
+
+```{r, test}
 # test dataset
 s <- c(4231.972,3935.604,3779.652,3627.687,3363.499,3230.566,2868.114,2868.827)
 m <- c(4987.66,5636.09,4754.06,4114.53,4141.72,3704.06,5142.19,4762.03)
 
 gauchStats(s,m)
-
 ```
 
-## Creates a generic set of stats to output that includes gauch
+## Creates a generic set of stats to output 
 
-```{r}
+- Standard stats used in paper in script below
+- Basic stats plus the Gauch et al. components defined in function above
+
+```{r, echo = FALSE, include = FALSE}
+
 # Create a tailored common function that do the stats and includes the gauch functionality
+# input is a df with Pred and Obs columns
+
 doStats <-  function (x) {
     library(dplyr)
     x %>% dplyr::summarise(
@@ -200,16 +228,17 @@ doStats <-  function (x) {
     nu = gauchStats(Pred,Obs)[2],
     lc = gauchStats(Pred,Obs)[3]) 
 }
+
 ```
 
-## Create Indexes for data agregation for stats
+## Create Indexes for data aggregation for stats
 
-- Combine Pred x Obs in different forms to do stats
-- E.g. Data for "all 4 treatments and depths together" but separated by "crop"" and "stage of growth""
+- Aggregate Pred x Obs in different forms to do stats
+- e.g. What's the best parameter combination (i.e. best fit/stats) for "each" Crop and "each" Stage? This is a Crop and Stage index. It considers data for "all" depths and "all" water-treatments.
 
 ```{r CreateIndexes}
 
-# pooled by crop ---------------------------------------
+# pooled by crop only ---------------------------------------
 dataWork$index_crop <- paste0(dataWork$Crop, "_SK",
                               dataWork$SurfaceKl, "_KR:",
                               dataWork$KLReduction, "_RF:",
@@ -218,7 +247,7 @@ dataWork$index_crop <- paste0(dataWork$Crop, "_SK",
 dataWork$index_crop <- as.factor(dataWork$index_crop)
 
 
-# pooled by crop and stage ---------------------------------------------
+# pooled by crop and "stage" ---------------------------------------------
 dataWork$index_crop_stage <- paste0(dataWork$Crop, "_",
                          dataWork$Stage, "_SK:",
                               dataWork$SurfaceKl, "_KR:",
@@ -226,6 +255,15 @@ dataWork$index_crop_stage <- paste0(dataWork$Crop, "_",
                               dataWork$RootFrontVelocity)
 
 dataWork$index_crop_stage <- as.factor(dataWork$index_crop_stage)
+
+# pooled by crop and "depth" ---------------------------------------
+dataWork$index_crop_depth <- paste0(dataWork$Crop, "_",
+                              dataWork$Depth, "_SK:",
+                              dataWork$SurfaceKl, "_KR:",
+                              dataWork$KLReduction, "_RF:",
+                              dataWork$RootFrontVelocity)
+
+dataWork$index_crop_depth <- as.factor(dataWork$index_crop_depth)
 
 
 # pooled by crop, stage and depth ---------------------------------------
@@ -237,17 +275,6 @@ dataWork$index_crop_stage_depth <- paste0(dataWork$Crop, "_",
                               dataWork$RootFrontVelocity)
 
 dataWork$index_crop_stage_depth <- as.factor(dataWork$index_crop_stage_depth)
-
-
-# pooled by crop and depth ---------------------------------------
-dataWork$index_crop_depth <- paste0(dataWork$Crop, "_",
-                              dataWork$Depth, "_SK:",
-                              dataWork$SurfaceKl, "_KR:",
-                              dataWork$KLReduction, "_RF:",
-                              dataWork$RootFrontVelocity)
-
-dataWork$index_crop_depth <- as.factor(dataWork$index_crop_depth)
-
 
 # re-order fators (ensure Obs is the LAST one)
 dataWork <- dataWork[c("Crop", "Irrigation",            
@@ -435,6 +462,32 @@ df_selected  %>%
 
 ```
 
+- Same graph in different format
+
+```{r, include = FALSE}
+
+# not used
+
+# Map rmsd
+df_selected  %>% 
+  filter(Crop=="Pasture") %>%
+  ungroup() %>% # to allow mutate
+  group_by(Crop, Stage) %>%
+  ggplot(aes(x = SurfaceKl, y = KLReduction, size = stats_cat)) +
+  geom_point() + 
+  facet_grid(Stage~Crop+RootFrontVelocity) +
+  scale_shape_manual(values=c(21))  +
+  scale_fill_manual(values=colors, breaks=levels(statDF_cropStage$stats_cat)[seq(1, N, by=1)])+
+  xlab("Surface kl category") +
+  ylab("Exponential kl reduction category")+
+  theme(text = element_text(size=16)) # + theme(axis.text.x = element_text(angle = 90, hjust = -0.5))
+
+```
+
+## Distribution of r_Rmse vales across each parameter
+
+- For Surface kl
+
 ```{r, fig.height=8,fig.width=8, echo=FALSE}
 
 # Sensitivity plots for lc and rmse
@@ -448,12 +501,150 @@ df_selected %>%
 
 ```
 
+- For kl decay rate with depth
+
+```{r, fig.height=8,fig.width=8, echo=FALSE, include = FALSE}
+
+# Sensitivity plots for lc and rmse
+df_selected %>%
+  ungroup() %>% # to allow mutate
+  # mutate(RootFrontVelocity = 
+  #          factor(RootFrontVelocity,levels = c("Low", "Mid", "High"))) %>%
+  ggplot(aes(x=r_rmse, colour=factor(KLReduction),fill=factor(KLReduction))) +
+  geom_density(alpha=0.2) + 
+  facet_grid(Stage~Crop)
+
+
+
+```
+
+
+```{r}
+# Sensitivity plots for lc and rmse
+df_selected %>%
+  ungroup() %>% # to allow mutate
+  mutate(lc_cat = cut(lc, breaks = quantile(lc, probs = seq(0, 1, 0.2)))) %>%
+  # mutate(RootFrontVelocity = 
+  #          factor(RootFrontVelocity,levels = c("Low", "Mid", "High"))) %>%
+  ggplot(aes(x=factor(KLReduction), y=r_rmse , colour=factor(KLReduction))) +
+  geom_jitter(aes(size= factor(KLReduction)), width=0.2,alpha=0.2)+
+  geom_boxplot(alpha=0.2) + 
+  facet_grid(Stage~Crop, scales="free") +
+ theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+df_selected %>%
+  ungroup() %>% # to allow mutate
+  mutate(lc_cat = cut(lc, breaks = quantile(lc, probs = seq(0, 1, 0.2)))) %>%
+  # mutate(RootFrontVelocity = 
+  #          factor(RootFrontVelocity,levels = c("Low", "Mid", "High"))) %>%
+  ggplot(aes(x=factor(KLReduction), y=lc , colour=factor(KLReduction))) +
+  geom_jitter(aes(size= factor(KLReduction)), width=0.2,alpha=0.2)+
+  geom_boxplot(alpha=0.2) + 
+  facet_grid(Stage~Crop, scales="free") +
+ theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Sensitivity plots for lc and rmse
+df_selected %>%
+  ungroup() %>% # to allow mutate
+  mutate(lc_cat = cut(lc, breaks = quantile(lc, probs = seq(0, 1, 0.2)))) %>%
+  # mutate(RootFrontVelocity = 
+  #          factor(RootFrontVelocity,levels = c("Low", "Mid", "High"))) %>%
+  ggplot(aes(x=factor(SurfaceKl), y=r_rmse , colour=factor(SurfaceKl))) +
+  geom_jitter(aes(size= factor(KLReduction)), width=0.2,alpha=0.2)+
+  geom_boxplot(alpha=0.2) + 
+  facet_grid(Stage~Crop, scales="free") 
+
+
+# Sensitivity plots for lc and rmse
+df_selected %>%
+  ungroup() %>% # to allow mutate
+  mutate(lc_cat = cut(lc, breaks = quantile(lc, probs = seq(0, 1, 0.2)))) %>%
+  # mutate(RootFrontVelocity = 
+  #          factor(RootFrontVelocity,levels = c("Low", "Mid", "High"))) %>%
+  ggplot(aes(x=factor(SurfaceKl), y=lc , colour=factor(SurfaceKl))) +
+  geom_jitter(aes(size= factor(KLReduction)), width=0.2,alpha=0.2)+
+  geom_boxplot(alpha=0.2) + 
+  facet_grid(Stage~Crop, scales="free") 
+
+
+```
+
+
+
+```{r}
+
+
+# Sensitivity plots for lc and rmse
+df_selected %>%
+  ungroup() %>% # to allow mutate
+  mutate(r_rmse_cat = cut(r_rmse, breaks = quantile(r_rmse, probs = seq(0, 1, 0.2)))) %>%
+  # mutate(RootFrontVelocity = 
+  #          factor(RootFrontVelocity,levels = c("Low", "Mid", "High"))) %>%
+  ggplot(aes(x=factor(SurfaceKl), y=lc , colour=factor(SurfaceKl))) +
+  geom_jitter(aes(size= factor(r_rmse_cat)), width=0.2,alpha=0.2)+
+  geom_boxplot(alpha=0.2) + 
+  facet_grid(Stage~Crop, scales="free") 
+
+# RFV
+
+# Sensitivity plots for lc and rmse
+df_selected %>%
+  ungroup() %>% # to allow mutate
+  mutate(lc_cat = cut(lc, breaks = quantile(lc, probs = seq(0, 1, 0.2)))) %>%
+  # mutate(RootFrontVelocity = 
+  #          factor(RootFrontVelocity,levels = c("Low", "Mid", "High"))) %>%
+  ggplot(aes(x=factor(RootFrontVelocity), y=r_rmse , colour=factor(RootFrontVelocity))) +
+  geom_jitter(aes(size= factor(lc_cat)), width=0.2,alpha=0.1)+
+  geom_boxplot(alpha=0.2) + 
+  facet_grid(Stage~Crop, scales="free") 
+
+# Sensitivity plots for lc and rmse
+df_selected %>%
+  ungroup() %>% # to allow mutate
+  mutate(r_rmse_cat = cut(r_rmse, breaks = quantile(r_rmse, probs = seq(0, 1, 0.2)))) %>%
+  # mutate(RootFrontVelocity = 
+  #          factor(RootFrontVelocity,levels = c("Low", "Mid", "High"))) %>%
+  ggplot(aes(x=factor(RootFrontVelocity), y=lc , colour=factor(RootFrontVelocity))) +
+  geom_jitter(aes(size= factor(r_rmse_cat)), width=0.2,alpha=0.1)+
+  geom_boxplot(alpha=0.2) + 
+  facet_grid(Stage~Crop, scales="free") 
+
+# KL reduction
+
+# Sensitivity plots for lc and rmse
+df_selected %>%
+  ungroup() %>% # to allow mutate
+  mutate(lc_cat = cut(lc, breaks = quantile(lc, probs = seq(0, 1, 0.2)))) %>%
+  # mutate(RootFrontVelocity = 
+  #          factor(RootFrontVelocity,levels = c("Low", "Mid", "High"))) %>%
+  ggplot(aes(x=factor(RootFrontVelocity), y=r_rmse , colour=factor(RootFrontVelocity))) +
+  geom_jitter(aes(size= factor(lc_cat)), width=0.2,alpha=0.1)+
+  geom_boxplot(alpha=0.2) + 
+  facet_grid(Stage~Crop, scales="free") 
+
+
+```
+
+
+
+```{r}
+# Sensitivity plots for lc and rmse
+df_selected %>%
+  ungroup() %>% # to allow mutate
+  # mutate(RootFrontVelocity = 
+  #          factor(RootFrontVelocity,levels = c("Low", "Mid", "High"))) %>%
+  ggplot(aes(x=factor(KLReduction), y=r_rmse , colour=factor(KLReduction))) +
+  geom_boxplot(alpha=0.2) + 
+  facet_grid(Stage~Crop) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 0))
+```
+
+
 ```{r}
 head(df_selected)
 ```
 
 # Calculates the best fit (lowest r_rmse)
-
 
 ## For the "establishment phase only"
 
@@ -483,7 +674,8 @@ statDF_cropStage <- df_selected
  # FIXME: does not calculate quartile per group
  # statDF_cropStage %>% group_by(Crop,Stage) %>% mutate(Q = quantile(rmse,probs=p)) %>% summary() 
 
-#Find good fit 25% population quartiles for each crop/stage FIXME: Sure there's a way to do this in groups (not used)
+#Find good fit 25% population quartiles for each crop/stage 
+# FIXME: Sure there's a way to do this in groups (not used)
 statDF_cropStage <- statDF_cropStage %>% mutate(rmseCut = ifelse(grepl("Lucerne_Est", index_crop_stage), Q_luc_est$Q[1],
                                 ifelse(grepl("Lucerne_Reg", index_crop_stage), Q_luc_reg$Q[1],
                                     ifelse(grepl("Pasture_Est", index_crop_stage), Q_pas_est$Q[1],
@@ -491,10 +683,10 @@ statDF_cropStage <- statDF_cropStage %>% mutate(rmseCut = ifelse(grepl("Lucerne_
                                 ))
 summary(statDF_cropStage)
 
-
 ```
 
 ```{r, fig.height=12,fig.width=12, echo=FALSE, warning=FALSE}
+
 # finds lowest r_rmse for the establishment phase first
 bestFit_Estab <- statDF_cropStage  %>%
   filter(Stage == "Est") %>%
@@ -514,6 +706,10 @@ RVF_luc_est <- bestFit_Estab[bestFit_Estab$Crop=="Lucerne",]$RootFrontVelocity
 RVF_rye_est <- bestFit_Estab[bestFit_Estab$Crop=="Pasture",]$RootFrontVelocity
 
 ```
+
+## Select best fit for Crop and Stages
+
+- Uses "only" Root Front Velocity found in "establishment" phase (i.e. filters out other RFVs)
 
 ```{r, fig.height=12,fig.width=12, echo=FALSE, warning=FALSE}
 
@@ -726,6 +922,20 @@ df <- g1 %>%
 ```
 
 ```{r PinPointBestFit, echo = FALSE, fig.height=12,fig.width=12, echo=FALSE}
+
+# create a circle around the best fits
+circleFun <- function(center = c(0,0),diameter = 1, npoints = 100){
+    r = diameter / 2
+    tt <- seq(0,2*pi,length.out = npoints)
+    xx <- center[1] + r * cos(tt)
+    yy <- center[2] + r * sin(tt)
+    return(data.frame(x = xx, y = yy))
+}
+
+dat <- circleFun(c(1,-1),2.3,npoints = 100)
+#geom_path will do open circles, geom_polygon will do filled circles
+ggplot(dat,aes(x,y)) + geom_path()
+
 # 
 # dfTemp <- statDF_cropStage %>%
 #   group_by(Crop, Stage) %>%
@@ -743,6 +953,16 @@ bound_bf <- data_bf %>%
   dplyr::select(lc, r_rmse)
 
 
+
+
+
+```
+
+## Plot population of simulations 
+
+- uses rRMSE and LC as criteria
+
+```{r}
 data_bf %>%
   ggplot(aes(x=lc, y=r_rmse)) +
   geom_point(aes(size=factor(SurfaceKl),
@@ -753,12 +973,14 @@ data_bf %>%
   xlab("Lack of correlation (LC, %MSE) ") +
   ylab(" Relative RMSE (% mean)") +
   geom_hline(data=bound_bf, aes(yintercept=r_rmse), linetype=2) +
-  geom_vline(data=bound_bf, aes(xintercept=lc), linetype=2)
+  geom_vline(data=bound_bf, aes(xintercept=lc), linetype=2) +
+  stat_ellipse() 
   
   
   # geom_hline(data=dfTemp, aes(yintercept=r_rmse_min), linetype=2) +
   # geom_vline(data=dfTemp, aes(xintercept=lc_max), linetype=2)
-
-
 ```
 
+## Ideas to explore
+
+- Do the ANOVA sensitivity analysis to find out which parameters are the most important
