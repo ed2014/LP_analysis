@@ -293,22 +293,24 @@ dataWork <- dataWork[c("Crop", "Irrigation",
 
 ## Calculate stats
 
+- Do calculations for each agregation possibility
+
 - By crop
 
-```{r DoStatsAll, echo=FALSE, include=TRUE}
-# Pooled by Crop only - agregate and do stats across crops only
+```{r DoStatsCrop, echo=FALSE, include=TRUE}
+
+# Separate Crop only
 statDF_cropOnly <- dataWork  %>%
 group_by(Crop, SurfaceKl, KLReduction, RootFrontVelocity, index_crop) %>%
 doStats() 
 
-#summary(statDF_cropOnly)
 summary(statDF_cropOnly)
 ```
 
 - By crop & Stage
 
 ```{r}
-# Pooled by Crop & Stage - Agregate all layers (i.e. remove Depth from grouping) and do stats for Crop and Stage
+# Separate Crop & Stage
 statDF_cropStage <- dataWork %>%
   dplyr::group_by(Crop, Stage, SurfaceKl, KLReduction, RootFrontVelocity, index_crop_stage) %>%
   doStats()
@@ -317,10 +319,25 @@ summary(statDF_cropStage)
   
 ```
 
+- Crop & Depth
+
+```{r}
+
+# Separate by Crop & Depth
+statDF_cropDepth <- dataWork %>%
+  dplyr::group_by(Crop, Depth, SurfaceKl, KLReduction, RootFrontVelocity, 
+                  index_crop,
+                  index_crop_depth) %>%
+  doStats() 
+
+summary(statDF_cropDepth)
+
+```
+
 - By crop & stage & depth - then average by depth
 
 ```{r}
-# Pooled by Crop & Stage & Depth
+# Separate Crop & Stage & Depth
 statDF_cropStageDepth <- dataWork %>%
   dplyr::group_by(Crop, Stage, Depth, SurfaceKl, KLReduction, RootFrontVelocity, 
                   index_crop,   # has to keep other indexes as we'll use them later
@@ -332,20 +349,6 @@ summary(statDF_cropStageDepth)
 
 ```
 
-- Crop & Depth
-
-```{r}
-
-# Pooled by Crop & Depth
-statDF_cropDepth <- dataWork %>%
-  dplyr::group_by(Crop, Depth, SurfaceKl, KLReduction, RootFrontVelocity, 
-                  index_crop,
-                  index_crop_depth) %>%
-  doStats() 
-
-summary(statDF_cropDepth)
-
-```
 
 ## Find and exclude layers with poor fit
 
