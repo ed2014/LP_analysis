@@ -446,9 +446,12 @@ ggpairs(aes(colour=Crop)) +
 
 ## Map stats for all parameter combinations
 
-- Idea: do analysis separated by luccern and pasture
+- Plot r_rmse values
+- Blue is low r_rmse (good) and red is high r_rmse (bad)
 
-```{r, fig.height=18,fig.width=12, echo=FALSE, warning=FALSE}
+```{r, fig.height=8,fig.width=8, echo=FALSE, warning=FALSE}
+
+# FIXME: do this separatelly for each crop (?) - better ranges within
 
 df_selected <- statDF_cropStage %>% 
   filter(!(index_crop_stage %in% remove_badLayer_byCropStage))
@@ -481,6 +484,41 @@ df_selected  %>%
   ylab("Exponential kl reduction category")+
   theme(text = element_text(size=16)) # + theme(axis.text.x = element_text(angle = 90, hjust = -0.5))
 
+```
+
+- Plot LC values
+- Blue is high LC (good) and red is low LC (bad)
+
+```{r, fig.height=8,fig.width=8, echo=FALSE, warning=FALSE}
+
+# Create categories of r_rmse (to see colour differences)
+df_selected$stats_cat <- cut(df_selected$lc, breaks = 10) # select stats here
+
+lv <- length(unique(df_selected$stats_cat))
+
+colors <- colorRampPalette(c("blue", "green", "yellow", "red"))(lv)
+
+df_selected$stats_cat <- factor(df_selected$stats_cat)
+
+N <- nlevels(df_selected$stats_cat)
+
+
+# Map lc
+df_selected  %>% 
+  ungroup() %>% # to allow mutate
+  group_by(Crop, Stage) %>%
+  ggplot(aes(x = SurfaceKl, 
+             y = KLReduction, 
+             z = RootFrontVelocity, 
+             fill = stats_cat)) +
+  geom_tile() + 
+  coord_equal() +
+  stat_contour() + 
+  facet_grid(Stage~Crop+RootFrontVelocity) + 
+  scale_fill_manual(values=rev(colors), breaks=levels(statDF_cropStage$stats_cat)[seq(1, N, by=1)])+
+  xlab("Surface kl category") +
+  ylab("Exponential kl reduction category")+
+  theme(text = element_text(size=16)) # + theme(axis.text.x = element_text(angle = 90, hjust = -0.5))
 ```
 
 - Same graph in different format
