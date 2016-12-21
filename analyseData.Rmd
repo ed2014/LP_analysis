@@ -349,26 +349,26 @@ summary(statDF_cropStageDepth)
 
 ```
 
+## Find and exclude parameter combinations
 
-## Find and exclude layers with poor fit
+- Aim: avoid overall good fit with bad fit(s) in individual soil depth layers
 
-- Start with Crop x Stage x Depth combinations (i.e. statDF_cropStageDepth)
+- Find and excludes parameter combinations with poor fit in individual layers (i.e. by Depth)
 
-- Graphs show the number of "excluded" simulations at a given depth
+- Start with Crop x Stage x Depth combinations (i.e. statDF_cropStageDepth index)
 
-- use r_rmse as criteria
+- Criteria of exclusion: r_rmse of layer is > upper quartile r_rmse of all simulations
+
+- <span style="color:red">Is this a good criteria?</span>
 
 ```{r ExcludeBadLayer}
 
-# Find the 75% percentile for each crop:
+# Find the 75% percentile for each crop. Upper quartile is the 4th element of the quantile function output
 
 cutByLayer_luc <- quantile(statDF_cropStageDepth$r_rmse[statDF_cropStageDepth$Crop == "Lucerne"])[[4]] # lucerne
-
 cutByLayer_pas <- quantile(statDF_cropStageDepth$r_rmse[statDF_cropStageDepth$Crop == "Pasture"])[[4]] # pasture
 
-# Find simulations with layers that have simulations worst than upper quartile of rmse
-
-# Exclude any parameter combination that gave poor fit in a given layer (Crop and Stage)
+# Find & exclude any parameter combinationsimulations with "individual" soil depth layers with r_rmse > upper quartile of r_rmse
 remove_badLayer_byCrop <- statDF_cropStageDepth %>%
   rowwise() %>%
   filter(ifelse(Crop == "Lucerne", r_rmse>cutByLayer_luc, r_rmse>cutByLayer_pas)) %>%
@@ -378,6 +378,10 @@ remove_badLayer_byCrop <- statDF_cropStageDepth %>%
 summary(remove_badLayer_byCrop)
 
 ```
+
+- Graphs show the number of "excluded" simulations at a given depth
+
+- Treat crops separatelly but excludes bad parameter combinations from both stages (Establishment and Regrowth)
 
 ```{r}
 remove_badLayer_byCrop %>%
@@ -389,6 +393,10 @@ remove_badLayer_byCrop %>%
 ```
 
 - Agregated by crop and stage
+
+- Treat crops and stages separatelly. Excludes bad parameter combinations within stages
+
+- <span style="color:red">FIXME: Can I use only one of this two options?</span>
 
 ```{r}
 # By crop and stage
@@ -411,18 +419,28 @@ remove_badLayer_byCropStage %>%
   facet_grid(Stage~Crop)
 ```
 
-## Compare and select which stats to use
+## Compare stats
 
-- Need a criteria for deciding which stats will be used 
+- Aim: Decide which stats to use as criteria to select optimum parameters
 - Many stats are "highly" correlated (e.g. see nse x r_rmse x rmse)
-- Logic is to combine stats that have low correlation with each other
-- Have chosen r_rmse and LC at the moment
+- Idea is to combine stats that have low correlation with each other
+- Have chosen <span style="color:red">r_rmse and LC</span> at the moment
+- <span style="color:red">Is this a good rationale? Alternatives?</span>
 
-```{r AnalyseStats, fig.height=18,fig.width=12, echo=FALSE}
+```{r AnalyseStats, fig.height=18,fig.width=12, echo=FALSE, warning=FALSE}
 
 # relationship between stats (Obs: it crashes if try to plot Crop+Stage or Crop+Stage+Depth - too heavy)
-plot(statDF_cropOnly[,7:13], col=statDF_cropOnly$Crop)
-legend(7,4.3,unique(statDF_cropOnly$Crop),col=1:length(statDF_cropOnly$Crop),pch=1)
+# plot(statDF_cropOnly[,7:13], col=statDF_cropOnly$Crop)
+# legend(7,4.3,unique(statDF_cropOnly$Crop),col=1:length(statDF_cropOnly$Crop),pch=1)
+
+# with 
+statDF_cropOnly %>%
+ group_by(Crop) %>%
+dplyr::select(r2:lc) %>%
+ggpairs(aes(colour=Crop)) + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# ggpairs(statDF_cropOnly[,7:13], colour = statDF_cropOnly$Crop)
 
 ```
 
