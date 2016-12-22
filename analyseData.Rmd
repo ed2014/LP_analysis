@@ -1134,7 +1134,7 @@ data_bf %>%
                  shape=factor(RootFrontVelocity))) +
 #  geom_path(aes(x,y), data=dat) +
   stat_ellipse(type = "norm", aes(linetype = range_idx == 1)) + 
- # scale_linetype_manual(values=c("white","darkgrey")) +
+  scale_linetype_manual(values=c("blank", "dotted")) +
   scale_shape_manual(values=c(21,22,24))  +
   facet_wrap(Stage~Crop, scales= "free") +
   xlab("Lack of correlation (LC, %MSE) ") +
@@ -1148,6 +1148,30 @@ data_bf %>%
 # idea: find values around 10% of RMSE and 10% of LC and draw ellipse
 
 ```
+
+
+```{r}
+
+data_bf %>%
+ filter(range_idx == 1) %>%
+  ggplot(aes(x=as.numeric(as.character(SurfaceKl)))) +
+    geom_histogram() +
+    facet_wrap(Stage~Crop, scales= "free") 
+
+data_bf %>%
+ filter(range_idx == 1) %>%
+  ggplot(aes(x=as.numeric(as.character(SurfaceKl)),y= as.numeric(as.character(KLReduction)))) +
+    geom_point() +
+    facet_wrap(Stage~Crop, scales= "free") 
+
+data_bf %>%
+ filter(range_idx == 1) %>%
+  ggplot(aes(x=as.numeric(as.character(SurfaceKl)),y= as.numeric(as.character(RootFrontVelocity)))) +
+    geom_point() +
+    facet_wrap(Stage~Crop, scales= "free") 
+
+```
+
 
 ## Ideas to explore
 
