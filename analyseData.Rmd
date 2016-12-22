@@ -5,7 +5,6 @@ output:
   word_document: default
 ---
 
-
 ```{r LoadLibs, echo=FALSE, include=FALSE}
 library(xtable)
 library(knitr)
@@ -22,7 +21,6 @@ library(GGally)
 options("scipen"=100, "digits"=4) # prints not in scientific notation
 
 ```
-
 
 ## FIXME list
 
@@ -68,8 +66,17 @@ dataWork$Depth <- as.factor(dataWork$Depth)
 estDate <- "2012-06-01" # FIXME: find a more functional criteria later
 #estDate <- "2012-01-01" # FIXME: test sensitivity to this date
 #estDate <- "2012-06-01 00:00:00"
-dataWork$Stage <- as.factor(ifelse(dataWork$Date<=estDate,"Est","Reg"))
+dataWork$Stage <- as.factor(ifelse(dataWork$Date<=estDate,"Establishment","Regrowth"))
+dataWork <- dataWork %>% mutate(Irrigation = factor(Irrigation, 
+                                                    levels=c("None", 
+                                                             "ThreeWeekly",
+                                                             "TwoPerWeek",
+                                                             "OnePerWeek"))) # re-order factors
 
+levels(dataWork$Irrigation) <- c("No Irrigation",
+                                 "Low Frequency",
+                                 "Medium Frequency", 
+                                 "High Frequency") # rename factors
 
 # Check levels
 levels(dataWork$Depth)
@@ -116,7 +123,7 @@ summary(dataWork)
 
 # example of dryland crops
 dataWork %>%
-  filter(Irrigation =="None") %>%
+  filter(Irrigation == "No Irrigation") %>%
   ggplot() +
   geom_point(aes(x=Date, y=Pred),colour="grey") +
   geom_point(aes(x=Date, y=Obs), size=2, colour="darkred") +
@@ -289,6 +296,9 @@ dataWork <- dataWork[c("Crop", "Irrigation",
                        "index_crop_depth",
                        "index_crop_stage_depth",
                        "Pred", "Obs")]
+
+
+
 ```
 
 ## Calculate stats
@@ -363,15 +373,17 @@ summary(statDF_cropStageDepth)
 
 ```{r ExcludeBadLayer}
 
-# Find the 75% percentile for each crop. Upper quartile is the 4th element of the quantile function output
+# FIXME: there's a duplication of this selection below by calculating 25% percentiles (low rmse) need to decide and keep only one of them. This one is at "soil depth layer" level though.
 
+# Find the 75% percentile for each crop. Upper quartile is the 4th element of the quantile function output
 cutByLayer_luc <- quantile(statDF_cropStageDepth$r_rmse[statDF_cropStageDepth$Crop == "Lucerne"])[[4]] # lucerne
 cutByLayer_pas <- quantile(statDF_cropStageDepth$r_rmse[statDF_cropStageDepth$Crop == "Pasture"])[[4]] # pasture
 
 # Find & exclude any parameter combinationsimulations with "individual" soil depth layers with r_rmse > upper quartile of r_rmse
 remove_badLayer_byCrop <- statDF_cropStageDepth %>%
   rowwise() %>%
-  filter(ifelse(Crop == "Lucerne", r_rmse>cutByLayer_luc, r_rmse>cutByLayer_pas)) %>%
+  filter(ifelse(Crop == "Lucerne", r_rmse>cutByLayer_luc, 
+                r_rmse>cutByLayer_pas)) %>%
   dplyr::select(index_crop, Crop, Depth) %>%
   unique()
 
@@ -399,6 +411,7 @@ remove_badLayer_byCrop %>%
 - <span style="color:red">FIXME: Can I use only one of this two options?</span>
 
 ```{r}
+
 # By crop and stage
 remove_badLayer_byCropStage <- statDF_cropStageDepth %>%
   rowwise() %>%
@@ -406,10 +419,21 @@ remove_badLayer_byCropStage <- statDF_cropStageDepth %>%
   dplyr::select(index_crop_stage, Crop, Stage, Depth) %>%
   unique()
 
-summary(remove_badLayer_byCropStage)
+#summary(statDF_cropStageDepth)
+#summary(remove_badLayer_byCropStage)
+
+all_df <- statDF_cropStageDepth %>% group_by(Crop, Stage) %>% summarise(all = n())
+remove_df <- remove_badLayer_byCropStage %>% group_by(Crop, Stage) %>% summarise(remove = n())
+
+df <- merge(all_df, remove_df, by = c("Crop","Stage"))
+df <- df %>% mutate(remove_Perc = round(remove/all*100,1)) # percentage of excluded simulations with at least one layer with bad fit
+
+head(df)
 
 
 ```
+
+- Graph number of simulations removed by poor fit in any given soil layer
 
 ```{r}
 remove_badLayer_byCropStage %>%
@@ -419,7 +443,7 @@ remove_badLayer_byCropStage %>%
   facet_grid(Stage~Crop)
 ```
 
-## Compare stats
+## Compare stats used
 
 - Aim: Decide which stats to use as criteria to select optimum parameters
 - Many stats are "highly" correlated (e.g. see nse x r_rmse x rmse)
@@ -433,7 +457,7 @@ remove_badLayer_byCropStage %>%
 # plot(statDF_cropOnly[,7:13], col=statDF_cropOnly$Crop)
 # legend(7,4.3,unique(statDF_cropOnly$Crop),col=1:length(statDF_cropOnly$Crop),pch=1)
 
-# with 
+# with stats by Crop
 statDF_cropOnly %>%
  group_by(Crop) %>%
 dplyr::select(r2:lc) %>%
@@ -444,6 +468,24 @@ ggpairs(aes(colour=Crop)) +
 
 ```
 
+## Select similations with good fit
+
+- Use stats done by Crop and Stage
+- Option 1: filter out sims with bad fit in individual layers 
+- Option 2: keep all simulations 
+- Check which one is being used
+
+```{r}
+
+# excludes sims with soil layers with bad fit
+ df_selected <- statDF_cropStage %>% 
+   filter(!(index_crop_stage %in% remove_badLayer_byCropStage))
+
+# No pre-exclusion of layers with bad fit
+df_selected <- statDF_cropStage
+
+```
+
 ## Map stats for all parameter combinations
 
 - Plot r_rmse values
@@ -451,57 +493,14 @@ ggpairs(aes(colour=Crop)) +
 
 ```{r, fig.height=8,fig.width=8, echo=FALSE, warning=FALSE}
 
-# FIXME: do this separatelly for each crop (?) - better ranges within
-
-df_selected <- statDF_cropStage %>% 
-  filter(!(index_crop_stage %in% remove_badLayer_byCropStage))
-  
 # Create categories of r_rmse (to see colour differences)
-df_selected$stats_cat <- cut(df_selected$r_rmse, breaks = 20)
-
+df_selected$stats_cat <- cut(df_selected$r_rmse, breaks = 10) # select stats here
 lv <- length(unique(df_selected$stats_cat))
-
 colors <- colorRampPalette(c("blue", "green", "yellow", "red"))(lv)
-
 df_selected$stats_cat <- factor(df_selected$stats_cat)
-
 N <- nlevels(df_selected$stats_cat)
 
-# Map rmsd
-df_selected  %>% 
-  ungroup() %>% # to allow mutate
-  group_by(Crop, Stage) %>%
-  ggplot(aes(x = SurfaceKl, 
-             y = KLReduction, 
-             z = RootFrontVelocity, 
-             fill = stats_cat)) +
-  geom_tile() + 
-  coord_equal() +
-  stat_contour() + 
-  facet_grid(Stage~Crop+RootFrontVelocity) + 
-  scale_fill_manual(values=colors, breaks=levels(statDF_cropStage$stats_cat)[seq(1, N, by=1)])+
-  xlab("Surface kl category") +
-  ylab("Exponential kl reduction category")+
-  theme(text = element_text(size=16)) # + theme(axis.text.x = element_text(angle = 90, hjust = -0.5))
-
-```
-
-- Plot LC values
-- Blue is high LC (good) and red is low LC (bad)
-
-```{r, fig.height=8,fig.width=8, echo=FALSE, warning=FALSE}
-
-# Create categories of r_rmse (to see colour differences)
-df_selected$stats_cat <- cut(df_selected$lc, breaks = 10) # select stats here
-
-lv <- length(unique(df_selected$stats_cat))
-
-colors <- colorRampPalette(c("blue", "green", "yellow", "red"))(lv)
-
-df_selected$stats_cat <- factor(df_selected$stats_cat)
-
-N <- nlevels(df_selected$stats_cat)
-
+colfunc <- colorRampPalette(c("blue", "green", "yellow", "red"))
 
 # Map lc
 df_selected  %>% 
@@ -515,41 +514,63 @@ df_selected  %>%
   coord_equal() +
   stat_contour() + 
   facet_grid(Stage~Crop+RootFrontVelocity) + 
-  scale_fill_manual(values=rev(colors), breaks=levels(statDF_cropStage$stats_cat)[seq(1, N, by=1)])+
+ # scale_fill_manual(values=colors, breaks=levels(statDF_cropStage$stats_cat)[seq(1, N, by=1)])+
+  scale_fill_manual(values=colfunc(length(levels(df_selected$stats_cat)))) +
   xlab("Surface kl category") +
   ylab("Exponential kl reduction category")+
   theme(text = element_text(size=16)) # + theme(axis.text.x = element_text(angle = 90, hjust = -0.5))
+
 ```
 
-- Same graph in different format
+- Plot LC values
+- Blue is high LC (good) and red is low LC (bad)
 
-```{r, include = FALSE}
+```{r, fig.height=8,fig.width=8, echo=FALSE, warning=FALSE}
 
-# not used
+# Create categories of r_rmse (to see colour differences)
+df_selected$stats_cat <- cut(df_selected$lc, breaks = 10) # select stats here
+lv <- length(unique(df_selected$stats_cat))
+colors <- colorRampPalette(c("blue", "green", "yellow", "red"))(lv)
+df_selected$stats_cat <- factor(df_selected$stats_cat)
+N <- nlevels(df_selected$stats_cat)
 
-# Map rmsd
+colfunc <- colorRampPalette(c("blue", "green", "yellow", "red"))
+
+# Map lc
 df_selected  %>% 
-  filter(Crop=="Pasture") %>%
   ungroup() %>% # to allow mutate
   group_by(Crop, Stage) %>%
-  ggplot(aes(x = SurfaceKl, y = KLReduction, size = stats_cat)) +
-  geom_point() + 
-  facet_grid(Stage~Crop+RootFrontVelocity) +
-  scale_shape_manual(values=c(21))  +
-  scale_fill_manual(values=colors, breaks=levels(statDF_cropStage$stats_cat)[seq(1, N, by=1)])+
+  ggplot(aes(x = SurfaceKl, 
+             y = KLReduction, 
+             z = RootFrontVelocity, 
+             fill = stats_cat)) +
+  geom_tile() + 
+  coord_equal() +
+  stat_contour() + 
+  facet_grid(Stage~Crop+RootFrontVelocity) + 
+ # scale_fill_manual(values=rev(colors), breaks=levels(statDF_cropStage$stats_cat)[seq(1, N, by=1)])+
+  scale_fill_manual(values=colfunc(length(levels(df_selected$stats_cat))))+
   xlab("Surface kl category") +
   ylab("Exponential kl reduction category")+
   theme(text = element_text(size=16)) # + theme(axis.text.x = element_text(angle = 90, hjust = -0.5))
-
 ```
 
-## Distribution of r_Rmse vales across each parameter
+## Distribution of r_rmse vales for each parameter
 
-- For Surface kl
+```{r, fig.height=8,fig.width=8, echo=FALSE, include = FALSE}
 
-```{r, fig.height=8,fig.width=8, echo=FALSE}
+# Found harder to evaluate distributions for this case (Not used)
 
-# Sensitivity plots for lc and rmse
+# KLReduction
+df_selected %>%
+  ungroup() %>% # to allow mutate
+  # mutate(RootFrontVelocity = 
+  #          factor(RootFrontVelocity,levels = c("Low", "Mid", "High"))) %>%
+  ggplot(aes(x=r_rmse, colour=factor(RootFrontVelocity),fill=factor(RootFrontVelocity))) +
+  geom_density(alpha=0.2) + 
+  facet_grid(Stage~Crop)
+
+# SurfaceKl
 df_selected %>%
   ungroup() %>% # to allow mutate
   # mutate(RootFrontVelocity = 
@@ -558,13 +579,7 @@ df_selected %>%
   geom_density(alpha=0.2) + 
   facet_grid(Stage~Crop)
 
-```
-
-- For kl decay rate with depth
-
-```{r, fig.height=8,fig.width=8, echo=FALSE, include = FALSE}
-
-# Sensitivity plots for lc and rmse
+# KLReduction
 df_selected %>%
   ungroup() %>% # to allow mutate
   # mutate(RootFrontVelocity = 
@@ -577,19 +592,49 @@ df_selected %>%
 
 ```
 
+### RootFrontVelocity (RFV) parameter
 
-```{r}
-# Sensitivity plots for lc and rmse
+- RFV has more leverage during Establishment (as expected)
+- RFV of 5 gives poor fit but has lowest bias (high LC) - trade-off!
+- RFV of 15 seems good for both crops
+- <span style="color:red">How to select given the trade-off between LC and r_RMSE?</span>
+
+```{r, fig.height=7,fig.width=10, echo=FALSE, include = TRUE}
+
 df_selected %>%
   ungroup() %>% # to allow mutate
-  mutate(lc_cat = cut(lc, breaks = quantile(lc, probs = seq(0, 1, 0.2)))) %>%
+#  mutate(lc_cat = cut(lc, breaks = quantile(lc, probs = seq(0, 1, 0.2)))) %>%
   # mutate(RootFrontVelocity = 
   #          factor(RootFrontVelocity,levels = c("Low", "Mid", "High"))) %>%
-  ggplot(aes(x=factor(KLReduction), y=r_rmse , colour=factor(KLReduction))) +
-  geom_jitter(aes(size= factor(KLReduction)), width=0.2,alpha=0.2)+
+  tidyr::gather("StatType", "StatValue", n:lc) %>%
+  filter(StatType == "r_rmse" | StatType == "lc") %>%
+  mutate(StatType = factor(StatType, levels = c("r_rmse","lc"))) %>%
+  ggplot(aes(x=factor(RootFrontVelocity), y=StatValue , colour=factor(RootFrontVelocity))) +
+  geom_jitter(alpha=0.2,width=0.2) +
   geom_boxplot(alpha=0.2) + 
-  facet_grid(Stage~Crop, scales="free") +
- theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  facet_wrap(Crop~StatType+Stage, scales="free",ncol = 4)
+
+```
+
+### Surface kl parameter
+
+
+```{r, fig.height=7,fig.width=10, echo=FALSE, include = TRUE}
+df_selected %>%
+  ungroup() %>% # to allow mutate
+  tidyr::gather("StatType", "StatValue", n:lc) %>%
+  filter(StatType == "r_rmse" | StatType == "lc") %>%
+  mutate(StatType = factor(StatType, levels = c("r_rmse","lc"))) %>%
+  ggplot(aes(x=factor(SurfaceKl), y=StatValue , colour=factor(SurfaceKl))) +
+  geom_jitter(alpha=0.2,width=0.2) +
+  geom_boxplot(alpha=0.2) + 
+  facet_wrap(Crop~StatType+Stage, scales="free",ncol = 4)
+```
+
+
+```{r, include =FALSE}
+
+# chunck to check
 
 df_selected %>%
   ungroup() %>% # to allow mutate
@@ -630,8 +675,9 @@ df_selected %>%
 
 
 
-```{r}
+```{r, include=FALSE}
 
+# chunck to check
 
 # Sensitivity plots for lc and rmse
 df_selected %>%
@@ -687,6 +733,7 @@ df_selected %>%
 
 
 ```{r}
+
 # Sensitivity plots for lc and rmse
 df_selected %>%
   ungroup() %>% # to allow mutate
@@ -696,11 +743,14 @@ df_selected %>%
   geom_boxplot(alpha=0.2) + 
   facet_grid(Stage~Crop) +
   theme(axis.text.x = element_text(angle = 90, hjust = 0))
+
 ```
 
 
 ```{r}
+
 head(df_selected)
+
 ```
 
 # Calculates the best fit (lowest r_rmse)
@@ -711,44 +761,35 @@ head(df_selected)
 - Selects root front velocity for that phase
 
 ```{r BestFitFinder1, echo=FALSE}
+# FIXME: Finds selected qualtile threshold of RMSE (i.e. lowest X% of RMSE values) - not used yet - or is it?
 
-# Define a selection criteria
-
-# NOT tested:
-  # mutate(mse = rmse^2, nlc = 100-lc, mse_nlc = mse*nlc ) %>% # creates metrics for selecting best fit
-  # filter(mse_nlc == min (mse_nlc)) %>%
-  # filter(r_rmse == min(r_rmse) ) %>%
-  # dplyr::select(-mse, -nlc, -mse_nlc)
-
-statDF_cropStage <- df_selected
-
-# Finds selected qualtile threshold of RMSE (i.e. lowest X% of RMSE values) - not used yet
+ # Finds the 25% best fit (i.e. lowest r_rmse)
  p <- 0.25
-
- Q_luc_est <- statDF_cropStage %>% subset(Crop == "Lucerne" & Stage == "Est") %>% mutate(Q = quantile(rmse,probs=p))
- Q_luc_reg <- statDF_cropStage %>% subset(Crop == "Lucerne" & Stage == "Reg") %>% mutate(Q = quantile(rmse,probs=p))  
- Q_pas_est <- statDF_cropStage %>% subset(Crop == "Pasture" & Stage == "Est") %>% mutate(Q = quantile(rmse,probs=p)) 
- Q_pas_reg <- statDF_cropStage %>% subset(Crop == "Pasture" & Stage == "Reg") %>% mutate(Q = quantile(rmse,probs=p))  
+ Q_luc_est <- df_selected %>% subset(Crop == "Lucerne" & Stage == "Establishment") %>% mutate(Q = quantile(rmse,probs=p))
+ Q_luc_reg <- df_selected %>% subset(Crop == "Lucerne" & Stage == "Regrowth") %>% mutate(Q = quantile(rmse,probs=p))  
+ Q_pas_est <- df_selected %>% subset(Crop == "Pasture" & Stage == "Establishment") %>% mutate(Q = quantile(rmse,probs=p)) 
+ Q_pas_reg <- df_selected %>% subset(Crop == "Pasture" & Stage == "Regrowth") %>% mutate(Q = quantile(rmse,probs=p))  
 
  # FIXME: does not calculate quartile per group
- # statDF_cropStage %>% group_by(Crop,Stage) %>% mutate(Q = quantile(rmse,probs=p)) %>% summary() 
+ # df_selected %>% group_by(Crop,Stage) %>% mutate(Q = quantile(rmse,probs=p)) %>% summary() 
 
 #Find good fit 25% population quartiles for each crop/stage 
 # FIXME: Sure there's a way to do this in groups (not used)
-statDF_cropStage <- statDF_cropStage %>% mutate(rmseCut = ifelse(grepl("Lucerne_Est", index_crop_stage), Q_luc_est$Q[1],
+# FIXME: this overwrites df_selected!
+df_selected <- df_selected %>% mutate(rmseCut = ifelse(grepl("Lucerne_Est", index_crop_stage), Q_luc_est$Q[1],
                                 ifelse(grepl("Lucerne_Reg", index_crop_stage), Q_luc_reg$Q[1],
                                     ifelse(grepl("Pasture_Est", index_crop_stage), Q_pas_est$Q[1],
                                        ifelse (grepl("Pasture_Reg", index_crop_stage), Q_pas_reg$Q[1], NA)))
                                 ))
-summary(statDF_cropStage)
+summary(df_selected)
 
 ```
 
 ```{r, fig.height=12,fig.width=12, echo=FALSE, warning=FALSE}
 
 # finds lowest r_rmse for the establishment phase first
-bestFit_Estab <- statDF_cropStage  %>%
-  filter(Stage == "Est") %>%
+bestFit_Estab <- df_selected  %>%
+  filter(Stage == "Establishment") %>%
   group_by(Crop) %>%
   filter(rmse<=rmseCut) %>% # was selecting good fit population
 #  filter(r_rmse == min(r_rmse)) %>%
@@ -773,12 +814,12 @@ RVF_rye_est <- bestFit_Estab[bestFit_Estab$Crop=="Pasture",]$RootFrontVelocity
 ```{r, fig.height=12,fig.width=12, echo=FALSE, warning=FALSE}
 
 # now select best fit for regrowth by setting the RFV to the selected in the establishment phase
-bestFit_Reg <- statDF_cropStage  %>% 
+bestFit_Reg <- df_selected %>% 
   filter(  
     index_crop_stage == selecParamsEst[1] | # bring back only selected establishmnet combinations 
     index_crop_stage == selecParamsEst[2] |
-    (Crop == "Lucerne" &  Stage == "Reg" & RootFrontVelocity == RVF_luc_est) |   
-    (Crop == "Pasture" &  Stage == "Reg" & RootFrontVelocity == RVF_rye_est)) %>% 
+    (Crop == "Lucerne" &  Stage == "Regrowth" & RootFrontVelocity == RVF_luc_est) |   
+    (Crop == "Pasture" &  Stage == "Regrowth" & RootFrontVelocity == RVF_rye_est)) %>% 
   group_by(Crop, Stage) %>%
   filter(rmse<=rmseCut) %>%
  # filter(r_rmse == min(r_rmse)) %>%
@@ -789,15 +830,16 @@ rownames(bestFit_Reg) <- paste0(bestFit_Reg$Crop,".",bestFit_Reg$Stage)
 
 t(bestFit_Reg) %>%
   kable(format = "markdown")
+
 ```
 
 ## Best fit graphs for LUCERNE
 
+- Red circles are observed
+- Black line is "best" fit
+- Grey circles are all simulations (i.e. parameter combinations)
+
 ```{r PlotBestFitsLuc, fig.height=18,fig.width=12, echo=FALSE}
-
-
-
-# Input best fits here (FIXME: Automate this as a function from paramater estimation)
 
 selecParams <- as.character(unique(bestFit_Reg$index_crop_stage))
 
@@ -815,14 +857,15 @@ estLoc <- which.min(abs(as.Date(sel1$Date) - as.Date(estDate)))
 # graph lucerne
 sel1 %>%
   ggplot() +
-  geom_point(aes(x=Date, y=Obs), size=2, shape = 1) +
+  geom_point(data=dataWork[dataWork$Crop == "Lucerne",], aes(x=Date, y=Pred), colour="grey",alpha=0.1) +
+  geom_point(aes(x=Date, y=Obs), size=2, shape = 1, colour="darkred") +
   geom_line(aes(x=Date, y=Pred),colour="black") +
   facet_grid(Depth~Irrigation, scales = "free") + 
    facet_grid(Depth~Irrigation) + 
   scale_x_date(labels = date_format("%b")) + scale_shape(solid = FALSE) + 
   geom_vline(xintercept = as.numeric(sel1$Date[estLoc]),linetype = 2) +
   ylab("Volumetric soil moisture (mm)") +
-  theme(text = element_text(size=16))
+  theme(text = element_text(size=16)) 
 
 #sel1  %>%
 #  ggplot(aes(x=Pred, y=Obs,fill = factor(Stage),colour=factor(Stage))) +
@@ -832,24 +875,28 @@ sel1 %>%
 #  facet_grid(Depth~Irrigation, scales = "free") +
 #  geom_abline(intercept = 0, slope = 1) 
 
-
+# Idea: plot range of simulations around best fit 
 
 ```
 
-```{r, fig.height=18,fig.width=12, echo=FALSE}
+```{r, fig.height=8,fig.width=8, echo=FALSE}
 sel1  %>%
   ggplot(aes(x=Pred, y=Obs,fill = factor(Depth),colour=factor(Depth))) +
   stat_smooth(method = "lm", se = TRUE, 
             linetype = 3) +
   geom_point() +
   facet_grid(Stage~Irrigation, scales = "free") +
-  geom_abline(intercept = 0, slope = 1) 
+  geom_abline(intercept = 0, slope = 1) +
+  ylab("Observed") +
+  xlab("Predicted")+ 
+  coord_fixed(ratio = 1) +
+  xlim(0,max(sel1$Pred,sel1$Obs)) +
+  ylim(0,max(sel1$Pred,sel1$Obs))
 ```
 
 ## Best fit graphs for RYEGRASS
 
-```{r BestFitRye, fig.height=18,fig.width=12, echo=FALSE}
-
+```{r BestFitRye, fig.height=8,fig.width=8, echo=FALSE}
 
 # Ryegrass
 sel2 <- dataWork %>%
@@ -864,13 +911,14 @@ sel2 <- dataWork %>%
 # graph ryegrass
  sel2 %>%
   ggplot() +
-  geom_point(aes(x=Date, y=Obs), size=2, shape = 1) +
+  geom_point(data=dataWork[dataWork$Crop == "Pasture",], aes(x=Date, y=Pred), colour="grey",alpha=0.1) + 
+  geom_point(aes(x=Date, y=Obs), size=2, shape = 1, colour="darkred") +
   geom_line(aes(x=Date, y=Pred),colour="black") +
   facet_grid(Depth~Irrigation) + 
   scale_x_date(labels = date_format("%b")) + scale_shape(solid = FALSE) + 
   geom_vline(xintercept = as.numeric(sel1$Date[estLoc]),linetype = 2)+
   ylab("Volumetric soil moisture (mm)") +
-  theme(text = element_text(size=16))
+  theme(text = element_text(size=16)) 
 
 #sel2  %>%
 #  ggplot(aes(x=Pred, y=Obs,fill = factor(Stage),colour=factor(Stage))) +
@@ -893,7 +941,11 @@ sel2  %>%
             linetype = 3) +
   geom_point() +
   facet_grid(Stage~Irrigation, scales = "free") +
-  geom_abline(intercept = 0, slope = 1)   
+  geom_abline(intercept = 0, slope = 1)  +
+  ylab("Observed") +
+  xlab("Predicted") +
+  xlim(0,max(sel2$Pred,sel1$Obs)) +
+  ylim(0,max(sel2$Pred,sel1$Obs))
 ```
 
 ## How does the best fit(s) look for RMSE by depth?
@@ -925,7 +977,10 @@ head(g1,20)
 
 ```
 
-```{r, fig.height=12,fig.width=12, echo=FALSE}
+```{r, fig.height=12,fig.width=12, echo=FALSE, include=FALSE}
+
+# this graph is not adding to previous ones, therefore not used
+
 # create a factor of  depth as integer
 #g1$Depth <- as.numeric(gsub("D", "",g1$Depth)) # FIXME: move this to a higher level (earlier) as it can be used in other graphs
 
@@ -956,7 +1011,7 @@ g1 %>%
 
 - Lack of Correlation (LU)
 
-```{r GauchStatsByDepth, echo = TRUE, fig.height=12,fig.width=12, echo=FALSE, warning=FALSE}
+```{r GauchStatsByDepth, echo = TRUE, fig.height=8,fig.width=8, echo=FALSE, warning=FALSE}
 
 df <- g1 %>%
   mutate(mse = rmse^2, sb=sb*mse, nu=nu*mse, lc=lc*mse) %>%
@@ -980,7 +1035,7 @@ df <- g1 %>%
 
 ```
 
-```{r PinPointBestFit, echo = FALSE, fig.height=12,fig.width=12, echo=FALSE}
+```{r PinPointBestFit, echo = FALSE, fig.height=12,fig.width=12, include=FALSE}
 
 # create a circle around the best fits
 circleFun <- function(center = c(0,0),diameter = 1, npoints = 100){
@@ -991,7 +1046,7 @@ circleFun <- function(center = c(0,0),diameter = 1, npoints = 100){
     return(data.frame(x = xx, y = yy))
 }
 
-dat <- circleFun(c(1,-1),2.3,npoints = 100)
+dat <- circleFun(c(50,20),4, npoints = 100)
 #geom_path will do open circles, geom_polygon will do filled circles
 ggplot(dat,aes(x,y)) + geom_path()
 
@@ -1002,14 +1057,7 @@ ggplot(dat,aes(x,y)) + geom_path()
 #   summarise_each(funs(max, min)) %>%
 #   dplyr::select(Crop, Stage, lc_max,r_rmse_min)
 
-data_bf <- statDF_cropStage %>%
-  mutate(BestFit = ifelse(index_crop_stage %in% bestFit_Reg$index_crop_stage,"Best", "NotBest")) %>%
-  mutate(BestFit = factor(BestFit, levels=c("NotBest", "Best")))
 
-bound_bf <- data_bf %>%
-  filter(BestFit == "Best") %>%
-  group_by(Crop, Stage) %>%
-  dplyr::select(lc, r_rmse)
 
 
 
@@ -1022,22 +1070,83 @@ bound_bf <- data_bf %>%
 - uses rRMSE and LC as criteria
 
 ```{r}
+
+
+
+# Flag simulations that gave best fit
+temp_data_bf <- statDF_cropStage %>%
+  mutate(BestFit = ifelse(index_crop_stage %in% bestFit_Reg$index_crop_stage,"Best", "NotBest")) %>%
+  mutate(BestFit = factor(BestFit, levels=c("NotBest", "Best"))) 
+
+#summary(temp_data_bf)
+
+# create df with "best fit" stat values and ranges
+rangeBestFit <- 0.05 # % of value
+
+bound_bf <- temp_data_bf %>%
+  filter(BestFit == "Best") %>%
+  group_by(Crop, Stage) %>%
+  dplyr::select(lc, r_rmse) %>%
+  mutate(r_rmse_best = r_rmse, lc_best = lc) %>%
+  dplyr::select(-lc, -r_rmse) %>%
+  mutate(r_rmse_bestFit_low = (1-rangeBestFit)*r_rmse_best,
+         r_rmse_bestFit_up = (1+rangeBestFit)*r_rmse_best,
+         lc_bestFit_low = (1-rangeBestFit)*lc_best,
+         lc_bestFit_up = (1+rangeBestFit)*lc_best)
+
+summary(bound_bf)
+
+# Create a flag in big dataset to point if r_rmse and lc are within range of good fit
+tempdf <- merge(temp_data_bf,bound_bf, by=c("Crop", "Stage"))
+
+data_bf <- tempdf %>%
+  rowwise() %>%
+  mutate(r_rmse_range_flag = ifelse(r_rmse < r_rmse_bestFit_up, 1, 0)) %>%
+  mutate(lc_range_flag = ifelse(lc <lc_bestFit_low, 0, 1)) %>%
+  mutate(range_idx = r_rmse_range_flag * lc_range_flag) %>%
+  dplyr::select(-r_rmse_range_flag,-lc_range_flag,-(r_rmse_bestFit_low:lc_bestFit_up))
+
+
+# range_bf_df <- data_bf %>%
+#   group_by(Crop, Stage) %>%
+#   filter(BestFit == "Best") %>%
+#   mutate(r_rmse_bestFit_low = (1-rangeBestFit)*r_rmse,
+#          r_rmse_bestFit_up = (1+rangeBestFit)*r_rmse,
+#          lc_bestFit_low = (1-rangeBestFit)*lc,
+#          lc_bestFit_up = (1+rangeBestFit)*lc)
+
+
+summary(data_bf)
+
+
+
+```
+
+```{r, fig.height=12,fig.width=12, echo=FALSE}
+# cbPalette <- c("#999999", "#E69F00","#56B4E9", "#009E73","#999999", "#E69F00","#56B4E9", "#009E73")
+#data_bf %>%
+#  filter(range_idx > 0)
+
 data_bf %>%
-  ggplot(aes(x=lc, y=r_rmse)) +
+  ggplot(aes(x=lc, y=r_rmse)) + # not working yet
   geom_point(aes(size=factor(SurfaceKl),
                  colour=factor(KLReduction),
                  shape=factor(RootFrontVelocity))) +
+#  geom_path(aes(x,y), data=dat) +
+  stat_ellipse(type = "norm", aes(linetype = range_idx == 1)) + 
+ # scale_linetype_manual(values=c("white","darkgrey")) +
   scale_shape_manual(values=c(21,22,24))  +
-  facet_grid(Stage~Crop, scales= "free") +
+  facet_wrap(Stage~Crop, scales= "free") +
   xlab("Lack of correlation (LC, %MSE) ") +
   ylab(" Relative RMSE (% mean)") +
-  geom_hline(data=bound_bf, aes(yintercept=r_rmse), linetype=2) +
-  geom_vline(data=bound_bf, aes(xintercept=lc), linetype=2) +
-  stat_ellipse() 
-  
+  geom_hline(data=bound_bf, aes(yintercept=r_rmse_best), linetype=2) + #
+  geom_vline(data=bound_bf, aes(xintercept=lc_best), linetype=2) # 
   
   # geom_hline(data=dfTemp, aes(yintercept=r_rmse_min), linetype=2) +
   # geom_vline(data=dfTemp, aes(xintercept=lc_max), linetype=2)
+
+# idea: find values around 10% of RMSE and 10% of LC and draw ellipse
+
 ```
 
 ## Ideas to explore
