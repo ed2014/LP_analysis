@@ -109,15 +109,15 @@ head(dataWork, 20)
 summary(dataWork)
 ```
 
-## Check Observed and Simulated time-series for data subset
+## Check Observed and Simulated time-series
 
 - Show time-series for dryland crops
 
-- All simulated parameter combinations (grey) and observed values (red)
+- Simulated parameter combinations' data (grey) and observed values (red)
 
-- Note that in some cases observations are in the edge of simulation's range. To discuss:
+- Note that, in some cases, observations are at the edge of simulation's range. 
 
-- <span style="color:red">Is this a sign that parameter ranges were not ideal???</span>  
+- <span style="color:red">To discuss: Is this a sign that parameter ranges should be expanded???</span>  
 
 ```{r GraphExample, fig.height=18,fig.width=12, echo=FALSE}
 
@@ -132,11 +132,12 @@ dataWork %>%
 
 ```
 
-## Predicted x Observed
+## Graph Predicted x Observed
 
 - For whole dataset (all parameter combinations)
-- X=Y line in black (1:1 line)
-- linear regression in gray
+- 1:1  line in black (x=y)
+- linear regression for each soil depth shown in gray
+- 95% confidence interval also shown
 
 ```{r XYgraph , fig.height=18,fig.width=12, echo=FALSE}
 dataWork %>%
@@ -155,11 +156,10 @@ dataWork %>%
 
 ## Create Gauch stats function
 
-- CrFunction to calculate RMSE components
+- Function to calculate RMSE components
 - Standard bias (SB)
 - Non unit (NU)
 - Lack of correlation (LC)
-- Aim is to maximise LC as this indicates random error distribution
 - Reference: Gauch Jr, H.G., Hwang, J.T.G., Fick, G.W., 2003. Model evaluation by comparison of model-based predictions and measured values. Agron. J. 95, 1442-1446
 
 ```{r CreateStats, echo=FALSE, include=FALSE}
@@ -205,7 +205,7 @@ gauchStats <- function(sim, meas) {
 - Test Gauch stats
 - Result has to be: 76.5  5.2 18.2 99.9  7.1
 
-```{r, test}
+```{r, include=FALSE}
 # test dataset
 s <- c(4231.972,3935.604,3779.652,3627.687,3363.499,3230.566,2868.114,2868.827)
 m <- c(4987.66,5636.09,4754.06,4114.53,4141.72,3704.06,5142.19,4762.03)
@@ -215,10 +215,10 @@ gauchStats(s,m)
 
 ## Creates a generic set of stats to output 
 
-- Standard stats used in paper in script below
-- Basic stats plus the Gauch et al. components defined in function above
+- These are the standard stats used in paper
+- Basic stats (e.g. r2, RMSE ...) plus the Gauch et al. components defined in the function above
 
-```{r, echo = FALSE, include = FALSE}
+```{r, echo = FALSE, include = TRUE}
 
 # Create a tailored common function that do the stats and includes the gauch functionality
 # input is a df with Pred and Obs columns
@@ -240,12 +240,15 @@ doStats <-  function (x) {
 
 ## Create Indexes for data aggregation for stats
 
-- Aggregate Pred x Obs in different forms to do stats
-- e.g. What's the best parameter combination (i.e. best fit/stats) for "each" Crop and "each" Stage? This is a Crop and Stage index. It considers data for "all" depths and "all" water-treatments.
+- Aggregate Pred x Obs in different forms to apply stats
+- The issue is to define what's the creteria to define the best fit
+- For example, to test parameter combinations for "each" Crop and "each" Stage we agregate by "Crop and Stage"
+- This e.g. then calculates stats across "all" soil depths and "all" water-treatments.
+- Multiple agregations are done below
 
 ```{r CreateIndexes}
 
-# pooled by crop only ---------------------------------------
+# Best fit by crop only ---------------------------------------
 dataWork$index_crop <- paste0(dataWork$Crop, "_SK",
                               dataWork$SurfaceKl, "_KR:",
                               dataWork$KLReduction, "_RF:",
@@ -254,7 +257,7 @@ dataWork$index_crop <- paste0(dataWork$Crop, "_SK",
 dataWork$index_crop <- as.factor(dataWork$index_crop)
 
 
-# pooled by crop and "stage" ---------------------------------------------
+# Best fit  by crop and "stage" ---------------------------------------------
 dataWork$index_crop_stage <- paste0(dataWork$Crop, "_",
                          dataWork$Stage, "_SK:",
                               dataWork$SurfaceKl, "_KR:",
@@ -263,7 +266,7 @@ dataWork$index_crop_stage <- paste0(dataWork$Crop, "_",
 
 dataWork$index_crop_stage <- as.factor(dataWork$index_crop_stage)
 
-# pooled by crop and "depth" ---------------------------------------
+# Best fit  by crop and "depth" ---------------------------------------
 dataWork$index_crop_depth <- paste0(dataWork$Crop, "_",
                               dataWork$Depth, "_SK:",
                               dataWork$SurfaceKl, "_KR:",
@@ -273,7 +276,7 @@ dataWork$index_crop_depth <- paste0(dataWork$Crop, "_",
 dataWork$index_crop_depth <- as.factor(dataWork$index_crop_depth)
 
 
-# pooled by crop, stage and depth ---------------------------------------
+# Best fit  by crop, stage and depth ---------------------------------------
 dataWork$index_crop_stage_depth <- paste0(dataWork$Crop, "_",
                               dataWork$Stage, "_Dp:",
                               dataWork$Depth, "_SK:",
@@ -283,7 +286,7 @@ dataWork$index_crop_stage_depth <- paste0(dataWork$Crop, "_",
 
 dataWork$index_crop_stage_depth <- as.factor(dataWork$index_crop_stage_depth)
 
-# re-order fators (ensure Obs is the LAST one)
+# re-order fators for tidy up (ensure Obs is the LAST one)
 dataWork <- dataWork[c("Crop", "Irrigation",            
                        "Depth",
                        "Stage",
@@ -296,9 +299,6 @@ dataWork <- dataWork[c("Crop", "Irrigation",
                        "index_crop_depth",
                        "index_crop_stage_depth",
                        "Pred", "Obs")]
-
-
-
 ```
 
 ## Calculate stats
@@ -307,7 +307,7 @@ dataWork <- dataWork[c("Crop", "Irrigation",
 
 - By crop
 
-```{r DoStatsCrop, echo=FALSE, include=TRUE}
+```{r DoStatsCrop, echo=TRUE, include=TRUE}
 
 # Separate Crop only
 statDF_cropOnly <- dataWork  %>%
@@ -344,7 +344,7 @@ summary(statDF_cropDepth)
 
 ```
 
-- By crop & stage & depth - then average by depth
+- By crop & stage & depth
 
 ```{r}
 # Separate Crop & Stage & Depth
@@ -359,43 +359,60 @@ summary(statDF_cropStageDepth)
 
 ```
 
-## Find and exclude parameter combinations
+## Find and exclude "bad" parameter combinations at individual soil depths
 
-- Aim: avoid overall good fit with bad fit(s) in individual soil depth layers
+- Aim: avoid overall good fit but bad fit(s) in individual soil depth layers
 
-- Find and excludes parameter combinations with poor fit in individual layers (i.e. by Depth)
+- Find and excludes parameter combinations that give poor fit in individual layers (i.e. by Depth)
 
 - Start with Crop x Stage x Depth combinations (i.e. statDF_cropStageDepth index)
 
-- Criteria of exclusion: r_rmse of layer is > upper quartile r_rmse of all simulations
+- Criteria of exclusion: r_rmse of layer is > upper quartile r_rmse of simulation population
 
-- <span style="color:red">Is this a good criteria?</span>
+- <span style="color:red">Is this necessary and a good criteria?</span>
 
 ```{r ExcludeBadLayer}
 
 # FIXME: there's a duplication of this selection below by calculating 25% percentiles (low rmse) need to decide and keep only one of them. This one is at "soil depth layer" level though.
 
-# Find the 75% percentile for each crop. Upper quartile is the 4th element of the quantile function output
+# Find the 75% percentile for each crop. 
+# obs: Upper quartile is the 4th vector element of the quantile function output
 cutByLayer_luc <- quantile(statDF_cropStageDepth$r_rmse[statDF_cropStageDepth$Crop == "Lucerne"])[[4]] # lucerne
 cutByLayer_pas <- quantile(statDF_cropStageDepth$r_rmse[statDF_cropStageDepth$Crop == "Pasture"])[[4]] # pasture
 
-# Find & exclude any parameter combinationsimulations with "individual" soil depth layers with r_rmse > upper quartile of r_rmse
-remove_badLayer_byCrop <- statDF_cropStageDepth %>%
-  rowwise() %>%
-  filter(ifelse(Crop == "Lucerne", r_rmse>cutByLayer_luc, 
-                r_rmse>cutByLayer_pas)) %>%
-  dplyr::select(index_crop, Crop, Depth) %>%
-  unique()
+print(paste0("Lucerne upper quartile r_rmse: ",round(cutByLayer_luc,1),"% mean"))
 
-summary(remove_badLayer_byCrop)
+print(paste0("Pasture upper quartile r_rmse: ",round(cutByLayer_pas,1),"% mean"))
 
 ```
 
-- Graphs show the number of "excluded" simulations at a given depth
+- Simulations to be excluded due to having one or more poor soil layers being simulated
 
-- Treat crops separatelly but excludes bad parameter combinations from both stages (Establishment and Regrowth)
+```{r, include=FALSE, echo = FALSE}
 
-```{r}
+# agregated by crop only - NOT USED
+
+# Find & exclude any parameter combination simulations with "individual" soil depth layers with r_rmse > upper quartile of r_rmse
+remove_badLayer_byCrop <- statDF_cropStageDepth %>%
+  rowwise() %>%
+  filter(ifelse(Crop == "Lucerne", 
+                r_rmse>cutByLayer_luc, 
+                r_rmse>cutByLayer_pas)) %>%
+  dplyr::select(index_crop, Crop, Depth, r_rmse) %>%
+  unique()
+
+summary(remove_badLayer_byCrop)
+```
+
+
+```{r, include=FALSE, echo = FALSE}
+
+# agregated by crop only - NOT USED
+
+# - Graphs show the number of "excluded" simulations at a given depth
+
+# - Treat crops separatelly but excludes bad parameter combinations from both stages (Establishment and Regrowth)
+
 remove_badLayer_byCrop %>%
   mutate(Depth = as.numeric(as.character(Depth)))  %>%
   ggplot(aes(x=Depth)) +
@@ -404,11 +421,9 @@ remove_badLayer_byCrop %>%
 
 ```
 
-- Agregated by crop and stage
+- Identify soil layer with bad fit for each "crop by stage" combinations"
 
-- Treat crops and stages separatelly. Excludes bad parameter combinations within stages
-
-- <span style="color:red">FIXME: Can I use only one of this two options?</span>
+- <span style="color:red">Is this rationale justifiable or am I over-doing?</span>
 
 ```{r}
 
@@ -434,8 +449,13 @@ head(df)
 ```
 
 - Graph number of simulations removed by poor fit in any given soil layer
+- Note that poor fit in individual layers was most frequently observed in regrowth stage
+- <span style="color:red">These parameter combinations will be excluded</span>
+- <span style="color:red">FIXME: How do I know if good overall sims are not excluded unfaily here?</span>
 
 ```{r}
+
+# FIXME: this will happen as last step after rmse/LC optimisation - to be moved
 remove_badLayer_byCropStage %>%
   mutate(Depth = as.numeric(as.character(Depth)))  %>%
   ggplot(aes(x=Depth)) +
@@ -445,13 +465,11 @@ remove_badLayer_byCropStage %>%
 
 ## Compare stats used
 
-- Aim: Decide which stats to use as criteria to select optimum parameters
-- Many stats are "highly" correlated (e.g. see nse x r_rmse x rmse)
-- Idea is to combine stats that have low correlation with each other
-- Have chosen <span style="color:red">r_rmse and LC</span> at the moment
-- <span style="color:red">Is this a good rationale? Alternatives?</span>
+- Aim: Decide which stats to use as the criteria to select "optimum" parameter combinations
+- Note that many stats are "highly" correlated (e.g. see nse x r_rmse x rmse)
 
-```{r AnalyseStats, fig.height=18,fig.width=12, echo=FALSE, warning=FALSE}
+
+```{r AnalyseStats, fig.height=10,fig.width=12, echo=FALSE, warning=FALSE}
 
 # relationship between stats (Obs: it crashes if try to plot Crop+Stage or Crop+Stage+Depth - too heavy)
 # plot(statDF_cropOnly[,7:13], col=statDF_cropOnly$Crop)
@@ -461,28 +479,45 @@ remove_badLayer_byCropStage %>%
 statDF_cropOnly %>%
  group_by(Crop) %>%
 dplyr::select(r2:lc) %>%
-ggpairs(aes(colour=Crop)) + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ggpairs(aes(colour=Crop),labelHJust=1) + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 0))
 
 # ggpairs(statDF_cropOnly[,7:13], colour = statDF_cropOnly$Crop)
 
 ```
 
+- So the idea is to combine stats that have low correlation with each other
+
+- At the moment I have chosen:
+
+- <span style="color:red">minimise r_rmse</span> : low error 
+
+- <span style="color:red">maximise LC</span> : low bias
+
+- <span style="color:red">Is this a good rationale? Alternatives?</span>
+
+
 ## Select similations with good fit
 
 - Use stats done by Crop and Stage
-- Option 1: filter out sims with bad fit in individual layers 
-- Option 2: keep all simulations 
+- Option 1: filter out simulations with bad fit in individual layers <span style="color:red">NOT used at the moment</span>
+- Option 2: keep all simulations <span style="color:red">Used at the moment</span>
 - Check which one is being used
 
 ```{r}
 
-# excludes sims with soil layers with bad fit
- df_selected <- statDF_cropStage %>% 
-   filter(!(index_crop_stage %in% remove_badLayer_byCropStage))
+vcTemp <- remove_badLayer_byCropStage$index_crop_stage
 
-# No pre-exclusion of layers with bad fit
+# Excludes sims with soil layers with bad fit
+ df_selected <- statDF_cropStage %>% 
+   filter(!(index_crop_stage %in% vcTemp )) # FIXME: do this later - if done now it excludes too many 
+
+nrow(df_selected)
+
+# Keep all parameter combinations
 df_selected <- statDF_cropStage
+
+nrow(df_selected)
 
 ```
 
@@ -490,8 +525,9 @@ df_selected <- statDF_cropStage
 
 - Plot r_rmse values
 - Blue is low r_rmse (good) and red is high r_rmse (bad)
+- Apologies for the horrible colours (FIXME)
 
-```{r, fig.height=8,fig.width=8, echo=FALSE, warning=FALSE}
+```{r, fig.height=8,fig.width=8, echo=FALSE}
 
 # Create categories of r_rmse (to see colour differences)
 df_selected$stats_cat <- cut(df_selected$r_rmse, breaks = 10) # select stats here
@@ -524,6 +560,12 @@ df_selected  %>%
 
 - Plot LC values
 - Blue is high LC (good) and red is low LC (bad)
+
+
+### Ideas to ncorporate:
+
+- do layer selection (exclusion) later after the overall fit was selected
+- plot a semnsitivity graph to different indexes (done already?)
 
 ```{r, fig.height=8,fig.width=8, echo=FALSE, warning=FALSE}
 
@@ -742,7 +784,7 @@ df_selected %>%
   ggplot(aes(x=factor(KLReduction), y=r_rmse , colour=factor(KLReduction))) +
   geom_boxplot(alpha=0.2) + 
   facet_grid(Stage~Crop) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
 
@@ -1128,19 +1170,19 @@ summary(data_bf)
 #  filter(range_idx > 0)
 
 data_bf %>%
-  ggplot(aes(x=lc, y=r_rmse)) + # not working yet
+  ggplot(aes(y=lc, x=r_rmse)) + # not working yet
   geom_point(aes(size=factor(SurfaceKl),
                  colour=factor(KLReduction),
                  shape=factor(RootFrontVelocity))) +
 #  geom_path(aes(x,y), data=dat) +
-  stat_ellipse(type = "norm", aes(linetype = range_idx == 1)) + 
+  stat_ellipse(type = "norm",aes(linetype = range_idx == 1)) + 
   scale_linetype_manual(values=c("blank", "dotted")) +
   scale_shape_manual(values=c(21,22,24))  +
-  facet_wrap(Stage~Crop, scales= "free") +
-  xlab("Lack of correlation (LC, %MSE) ") +
-  ylab(" Relative RMSE (% mean)") +
-  geom_hline(data=bound_bf, aes(yintercept=r_rmse_best), linetype=2) + #
-  geom_vline(data=bound_bf, aes(xintercept=lc_best), linetype=2) # 
+  facet_wrap(Crop~Stage, scales= "free") +
+  ylab("Lack of correlation (LC, % MSE) ") +
+  xlab(" Relative RMSE (% observed mean)") +
+  geom_vline(data=bound_bf, aes(xintercept=r_rmse_best), linetype=2) + #
+  geom_hline(data=bound_bf, aes(yintercept=lc_best), linetype=2) # 
   
   # geom_hline(data=dfTemp, aes(yintercept=r_rmse_min), linetype=2) +
   # geom_vline(data=dfTemp, aes(xintercept=lc_max), linetype=2)
@@ -1152,23 +1194,41 @@ data_bf %>%
 
 ```{r}
 
-data_bf %>%
- filter(range_idx == 1) %>%
-  ggplot(aes(x=as.numeric(as.character(SurfaceKl)))) +
-    geom_histogram() +
-    facet_wrap(Stage~Crop, scales= "free") 
 
-data_bf %>%
- filter(range_idx == 1) %>%
-  ggplot(aes(x=as.numeric(as.character(SurfaceKl)),y= as.numeric(as.character(KLReduction)))) +
-    geom_point() +
-    facet_wrap(Stage~Crop, scales= "free") 
 
 data_bf %>%
  filter(range_idx == 1) %>%
   ggplot(aes(x=as.numeric(as.character(SurfaceKl)),y= as.numeric(as.character(RootFrontVelocity)))) +
-    geom_point() +
+    geom_count() +
     facet_wrap(Stage~Crop, scales= "free") 
+
+data_bf %>%
+ filter(range_idx == 1) %>%
+  ggplot(aes(x=as.numeric(as.character(KLReduction)),y= as.numeric(as.character(RootFrontVelocity)))) +
+    geom_count() +
+    facet_wrap(Stage~Crop, scales= "free")
+
+```
+
+```{r, fig.height=12,fig.width=12, echo=FALSE}
+data_bf %>%
+ filter(range_idx == 1) %>%
+  group_by(SurfaceKl,KLReduction) %>%
+  ggplot(aes(x=as.numeric(as.character(SurfaceKl)),y= as.numeric(as.character(KLReduction)))) +
+  # geom_count() +
+    geom_point(aes(size=rmse)) +
+    facet_wrap(Stage~Crop+RootFrontVelocity, scales= "free") 
+```
+
+## 
+
+- From the best fit ...
+- Check individual layers and keep only best 
+
+```{r}
+
+
+
 
 ```
 
