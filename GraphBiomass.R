@@ -1,13 +1,16 @@
+# Script was deprecated for similar name file in markdown (.Rmd file)
+
 library(tidyr)
 library(dplyr)
 library(ggplot2)
-
-
 
 info <- read.table("C:\\GitHubRepos\\LP_analysis\\BiomassAnnualRawData.txt", header=TRUE)
 
 head(info)
 
+
+
+# graph
 info %>%
   mutate(Season = as.factor(Season)) %>%
   mutate(Irrigation = factor(Irrigation, levels=c("Hig", "Med", "Low", "Dry"))) %>%
