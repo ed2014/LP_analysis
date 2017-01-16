@@ -419,9 +419,11 @@ Logic:
 
 # Separate Crop only
 statDF_crop <- dataWork  %>%
- filter(Irrigation == "No Irrigation") %>%  # test optmise for dryland
-filter (Stage == "Establishment") %>%
-# filter (Stage == "Regrowth") %>%
+  filter(Irrigation == "No Irrigation") %>%  # test optmise for dryland
+# filter(Irrigation != "No Irrigation") %>% 
+# filter(Irrigation != "High frequency") %>% 
+#  filter (Stage == "Establishment") %>%
+ # filter (Stage == "Regrowth") %>%
 group_by(Crop, SurfaceKl, KLReduction, RootFrontVelocity, index_crop) %>%
 doStats() 
 
@@ -431,21 +433,38 @@ summary(statDF_crop)
 # Find "optimum" per crop
 
 ```{r}
+
+# idea ... loop across stages and treatment combinations
+# idea: use percentile to get parameter uncertanty 
+
+# FIXME: It is unclear how to combine stats criteria to select what the best simulation is
+
 # finds lowest r_rmse for the establishment phase first
 bestFit_crop <- statDF_crop  %>%
   group_by(Crop) %>%
-  filter(lc > quantile(lc, 0.75) ) %>%
-  filter(r_rmse == min(r_rmse) ) %>%
+ # mutate(StatIndex = (100-lc)*r_rmse) %>%
+ # mutate(StatIndex = pBias * rsr)  %>%
+ # filter(StatIndex == min(StatIndex)) %>%
+ filter(lc > quantile(lc, 0.75) ) %>% # get 25% least biased fits
+#  filter(pBias < ifelse(pBias<0, quantile(-1*pBias, 0.95), quantile(pBias, 0.95))) %>% # get 25% least biased fits
+#  filter(r_rmse == min(r_rmse) ) %>%   # get smallest error
+    filter(r_rmse == min(r_rmse) ) %>%   # get smallest error
+#  filter(lc > quantile(lc, 0.95) | rmse < quantile(rmse, 0.05))
+  # mutate(pBias_pos = ifelse(pBias<0, -1*pBias, pBias)) %>% # adjust pBias to be always positive
+  # filter(pBias_pos < quantile(pBias_pos, 0.05) | rsr < quantile(rsr, 0.05))
+#  filter(rsr == min(rsr) ) %>%   # get smallest error
   filter(row_number()  == min(row_number())) # gets first set of indexes if still multiple choices - FIXME
+
+#write.csv(bestFit_crop, "testStatsBias.csv")
 
 rownames(bestFit_crop) <- paste0(bestFit_crop$Crop)
 
-t(bestFit_crop) %>%
-  kable(format = "markdown", align = 'c')
+ t(bestFit_crop) %>%
+   kable(format = "markdown", align = 'c')
 
-selecParamsEst <- as.character(unique(bestFit_crop$index_crop))
-RVF_luc_est <- bestFit_crop[bestFit_crop$Crop=="Lucerne",]$RootFrontVelocity
-RVF_rye_est <- bestFit_crop[bestFit_crop$Crop=="Ryegrass",]$RootFrontVelocity
+ selecParamsEst <- as.character(unique(bestFit_crop$index_crop))
+ RVF_luc_est <- bestFit_crop[bestFit_crop$Crop=="Lucerne",]$RootFrontVelocity
+ RVF_rye_est <- bestFit_crop[bestFit_crop$Crop=="Ryegrass",]$RootFrontVelocity
 
 ```
 
@@ -467,6 +486,7 @@ sel1 %>%
   geom_point(data=dataWork[dataWork$Crop == "Lucerne",], aes(x=Date, y=Pred), colour="darkgrey",alpha=0.1) + # add shade of all sims
   geom_point(aes(x=Date, y=Obs), size=2, shape = 1, colour="darkred") +
   geom_line(aes(x=Date, y=Pred),colour="black", size=1.2) +
+#  geom_point(aes(x=Date, y=Pred),colour="black", size=0.2) +
   facet_grid(Depth~Irrigation, scales = "free") + 
   facet_grid(Depth~Irrigation) + 
   scale_x_date(labels = date_format("%b")) + scale_shape(solid = FALSE) + 
@@ -492,6 +512,15 @@ sel1 %>%
   ylab("Volumetric soil moisture (mm)") +
   theme(text = element_text(size=16)) 
 ```
+
+
+# Can we improve simulation sby removing specific layers with bad fit?
+
+```{r}
+
+
+```
+
 
 
 
