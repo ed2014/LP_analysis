@@ -17,6 +17,7 @@ library(ggplot2)
 library (hydroGOF)
 library(scales)
 library(GGally)
+library(xtable)
 
 options("scipen"=100, "digits"=4) # prints not in scientific notation
 
@@ -493,23 +494,71 @@ For our situation, where we started from pre-simulated values for parameter comb
 
 # plot overall population of simulations
 
-```{r PlotSimPop, fig.height=5,fig.width=10, echo=FALSE, warning=FALSE}
-statDF_crop %>%
-  ggplot(aes(y=lc, x=r_rmse)) + # not working yet
-  geom_point(alpha=0.5, aes(size=factor(SurfaceKl),
-                 colour=factor(KLReduction),
+```{r PlotSimPop, fig.height=10,fig.width=15, echo=FALSE, warning=FALSE}
+
+statDF_crop_stage_irrig %>%
+ # filter(RootFrontVelocity =="5") %>%
+  ggplot(aes(y=r_rmse, x=lc)) + # not working yet
+#  ggplot(aes(y=rsr, x=pBias)) + # not working yet
+  geom_point(alpha=0.8, aes(size=factor(KLReduction),
+                 colour=factor(SurfaceKl),
                  shape=factor(RootFrontVelocity))) +
+  scale_shape_discrete(solid=F) +
 #  geom_path(aes(x,y), data=dat) +
  # stat_ellipse(type = "norm",aes(linetype = range_idx == 1)) + 
  # scale_linetype_manual(values=c("blank", "dotted")) +
  # scale_shape_manual(values=c(21,22,24))  +
-  facet_wrap(~Crop, scales= "free") +
-  ylab("Lack of correlation (LC, % MSE) ") +
-  xlab(" Relative RMSE (% observed mean)") # +
+#  facet_wrap(Irrigation~Crop+Stage, scales = "free") +
+  facet_grid(Irrigation~Crop+Stage) +
+ # ylim(min(statDF_crop_stage_irrig$LC),max(statDF_crop_stage_irrig$LC))+
+ # geom_vline(aes(xintercept=0), linetype=2) + xlab("Percent Bias (%) ") + ylab("RMSE-observations standard deviation (RSR, %)")
+  xlab("Lack of correlation (LC, % MSE) ") + ylab(" Relative RMSE (% observed mean)")
+   # +
   # geom_vline(data=bound_bf, aes(xintercept=r_rmse_best), linetype=2) + #
   # geom_hline(data=bound_bf, aes(yintercept=lc_best), linetype=2) # 
 ```
 
+- Note that if we decide to use different statistics (RSE and pBias now) ... a different picture emerges
+- Although patterns differ the "best" set of parameters are generally the same
+- <span style="color:red">Which set of stats indexes are the best to be used?</span>
+- Two issues: many parameter combiations are "similarly good" and "the best" depends on the choice of stats index
+- <span style="color:red">Does it make sense to pick one combination given the "equifinality"?</span>
+
+```{r PlotSimPop, fig.height=10,fig.width=15, echo=FALSE, warning=FALSE}
+
+statDF_crop_stage_irrig %>%
+ # filter(RootFrontVelocity =="5") %>%
+#  ggplot(aes(y=r_rmse, x=lc)) + # not working yet
+  ggplot(aes(y=rsr, x=pBias)) + # not working yet
+  geom_point(alpha=0.8, aes(size=factor(KLReduction),
+                 colour=factor(SurfaceKl),
+                 shape=factor(RootFrontVelocity))) +
+  scale_shape_discrete(solid=F) +
+#  geom_path(aes(x,y), data=dat) +
+ # stat_ellipse(type = "norm",aes(linetype = range_idx == 1)) + 
+ # scale_linetype_manual(values=c("blank", "dotted")) +
+ # scale_shape_manual(values=c(21,22,24))  +
+#  facet_wrap(Irrigation~Crop+Stage, scales = "free") +
+  facet_grid(Irrigation~Crop+Stage) +
+ # ylim(min(statDF_crop_stage_irrig$LC),max(statDF_crop_stage_irrig$LC))+
+  geom_vline(aes(xintercept=0), linetype=2) + xlab("Percent Bias (%) ") + ylab("RMSE-observations standard deviation (RSR, %)")
+ # xlab("Lack of correlation (LC, % MSE) ") + ylab(" Relative RMSE (% observed mean)")
+   # +
+  # geom_vline(data=bound_bf, aes(xintercept=r_rmse_best), linetype=2) + #
+  # geom_hline(data=bound_bf, aes(yintercept=lc_best), linetype=2) # 
+```
+
+## Picking "the best" parameter combination
+
+As a example, and aware of equifinality shown above, let's choose a cretiria to select best param combination
+
+Subjective creteria for selection:
+
+- The 15% simulations with less bias (low SB or pBias)
+
+- The lowest error of this pre-selected population (Low RMSE or RSR)
+
+- If multiple simulations fulfill the category take the one with lowest numeric parameter values (FIXME)
 
 ```{r SimSelect, warning=FALSE}
 
@@ -518,10 +567,10 @@ statDF_crop %>%
 # use histogram of estimated values?
 # FIXME: It is unclear how to combine stats criteria to select what the best simulation is
 
-percSel <- 0.05 # percentile of simulations to be selected (Attention to index criteria)
+percSel <- 0.15 # percentile of simulations to be selected (Attention to index criteria)
 
 # finds lowest r_rmse for the establishment phase first
-bestFit_sims <- statDF_crop  %>%
+bestFit_sims <- statDF_crop_stage_irrig  %>%
   group_by(Crop, Stage, Irrigation) %>%
  # mutate(StatIndex = (100-lc)*r_rmse) %>%
  # mutate(StatIndex = pBias * rsr)  %>%
@@ -534,15 +583,23 @@ bestFit_sims <- statDF_crop  %>%
   # mutate(pBias_pos = ifelse(pBias<0, -1*pBias, pBias)) %>% # adjust pBias to be always positive
   # filter(pBias_pos < quantile(pBias_pos, 0.05) | rsr < quantile(rsr, 0.05))
 #  filter(rsr == min(rsr) ) %>%   # get smallest error
-  filter(row_number() == min(row_number())) # FIXME: gets lowest param value if stats are the same 
+  filter(row_number() == min(row_number()))# FIXME: gets lowest param value if stats are the similar for many combinations 
 
 #write.csv(bestFit_crop, "testStatsBias.csv")
 
 # only for single selection
- rownames(bestFit_sims) <- paste0(bestFit_sims$Crop,"_",bestFit_sims$Stage,"_",bestFit_sims$Irrigation) 
+ rownames(bestFit_sims) <- paste0(substr(bestFit_sims$Crop,1,3),"_",
+                                  substr(bestFit_sims$Stage,1,3),"_",
+                                  substr(bestFit_sims$Irrigation,1,3))
+
 # 
-  t(bestFit_sims) %>%
+ df <-  as.data.frame(t(bestFit_sims)) %>%
+   mutate(Item = rownames(.))
+  
+ df %>%
+    filter(Item != "index_crop_stage_irrig") %>%
     kable(format = "markdown", align = 'c')
+  # xtable()
  
 
  selecParamsEst <- as.character(unique(bestFit_sims$index_crop))
@@ -553,9 +610,9 @@ bestFit_sims <- statDF_crop  %>%
 
 # Evaluate residuals of best fit selection
 
-- We can look at independence of residuals
-- This will be quantitativelly picked by bias-stats indexes I'd believe (Check with Esther)
+- We can look at distribution of residuals
 - Visually it seems "rainfed" sims are less biased
+- This will be quantitativelly picked by bias indexes I'd believe (Check with Esther)
 
 ```{r, fig.height=10, fig.width=15, warning = FALSE}
 dataWork %>%
@@ -571,16 +628,12 @@ dataWork %>%
   xlab("Observed mean value (mm/mm) ")
 ```
 
-
-# Plot "best" parameter choice against all simulations
-
-```{r}
-
-```
-
-
-
 # How does the fit looks across all dataset?
+
+Select best fit for:
+
+- Dryland crops (rationale is that kl is expressed here)
+- Use Root Front Velocity from the "establishment" stage only (rationale is it's when roots grow)
 
 ```{r, fig.width=10, fig.height=15}
 
