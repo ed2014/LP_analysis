@@ -395,78 +395,190 @@ tempDF <- dataWork %>%
 
 ```
 
+- Graph show distribution of % of points within the 95% CI of observed
+- Mock values until we get actual data from Hamish
+
 ```{r, fig.height=5, fig.width=10, warning = FALSE}
+
 # This has to be done for stats batch "best" fit or stats calculation
-# Percent of points within CI
 tempDF  %>%
 group_by(Crop, Stage,Irrigation,RootFrontVelocity,KLReduction,SurfaceKl, index_crop_stage_irrig) %>%
 summarise(Perc95CI = sum(Within_CI95)/n()*100, ObsNo = n()) %>%
-  ggplot(aes(x=Stage, y=Perc95CI)) +
+  ggplot(aes(x=factor(SurfaceKl) , y=Perc95CI, colour=factor(Stage))) +
   geom_boxplot(alpha=0.2) +
-  geom_jitter(width=0.5, aes(colour=factor(SurfaceKl))) +
+  geom_jitter(width=0.5, alpha=0.5, aes(shape=factor(RootFrontVelocity))) +
   facet_grid(Crop~Irrigation) +
   coord_flip()
+
 ```
 
-# Additional stats
+## Calculate stats across data subset
 
-Logic:
+Selection of stat indexes to use, at the moment we're following the refs:
 
-- Start from highest agregation level (best parameter combination per crop)
-- i.e. across all depths, treatments, stages etc
+(i) Moriasi, D.N., Arnold, J.G., Van Liew, M.W., Bingner, R.L., R.D., H., Veith, T.L., 2007. Model evaluation guidelines for systematic quantification of accuracy in watershed simulations. Transactions of the ASABE 50, 885-900
 
+(ii) Gauch Jr, H.G., Hwang, J.T.G., Fick, G.W., 2003. Model evaluation by comparison of model-based predictions and measured values. Agron. J. 95, 1442-1446
+
+Logic used:
+
+- Start from highest agregation level (best parameter combination per crop, i.e. across all depths)
+
+- Use <span style="color:red">"only rain-fed crops"</span> to calculate statistics. Rationale: kl values are only expressed when water uptake is at its maximum rate - only happens in rain-fed
+
+- Obs: Impact of these assumptions can be tested by doing for each stage/irrigation
+
+- Now calculate a series of statistical indexes for different parameter combinations
+ 
 ```{r DoStatsCrop, echo=TRUE, include=TRUE}
 
+# IDEA: compare optimum for all x optimuns for stage/irrig separation to test assumption
+
 # Separate Crop only
-statDF_crop <- dataWork  %>%
-  filter(Irrigation == "No Irrigation") %>%  # test optmise for dryland
+statDF_crop_stage_irrig <- dataWork  %>%
+#  filter(Irrigation == "No Irrigation") %>%  # optmise for dryland only
+# explore param diffs for stage and irrig treat (test only)  
 # filter(Irrigation != "No Irrigation") %>% 
 # filter(Irrigation != "High frequency") %>% 
-#  filter (Stage == "Establishment") %>%
- # filter (Stage == "Regrowth") %>%
-group_by(Crop, SurfaceKl, KLReduction, RootFrontVelocity, index_crop) %>%
+# filter (Stage == "Establishment") %>%
+# filter (Stage == "Regrowth") %>%
+group_by(Crop, Stage, Irrigation, # labels
+         index_crop_stage_irrig, # corresponding index
+         SurfaceKl, KLReduction, RootFrontVelocity) %>% # index
 doStats() 
 
-summary(statDF_crop)
+summary(statDF_crop_stage_irrig)
 ```
 
-# Find "optimum" per crop
+## Define method to select "optimum" parameter combination(s)
 
-```{r}
+- <span style="color:red">Which method do we use to calibrate/optimise parameters?</span>
+
+- There are sure many "standard" options: See Chapter 6 in Wallach, D., Makowski, D., Jones, J.W., 2013. Working with Dynamic Crop Models : Methods, Tools and Examples for Agriculture and Environment (2). Academic Press, Amsterdam, NL. 
+
+- Note below that many stats are "highly" correlated (e.g. nse x r_rmse x rmse)
+
+- So the idea is to combine stats that have low correlation with each other
+
+Check correletion among stats indexes
+
+- Colours are the diffrenet crops lucerne (red) and ryegrass (blue)
+
+```{r CompareStatIndexes, fig.height=15,fig.width=12, echo=FALSE, warning=FALSE, }
+# with stats by Crop
+statDF_crop_stage_irrig %>%
+group_by(Crop) %>%
+dplyr::select(r2:pBias) %>%
+ggpairs(aes(colour=Crop),labelHJust=1)
+```
+
+For our situation, where we started from pre-simulated values for parameter combinations, the logic for parameter selection was:
+
+- Indexes that quantify (i) simulation error and (ii) simulation bias
+
+- We choose two that have weak correlation between themselves
+
+- Options (RMSE + LC) from Gauch et al 2003 or (RSR + pBias) from Moriase et al 2007
+
+-<span style="color:red">Can we use more sophisticated/formal/defendable parameter estimation techniques?</span>
+
+# Current approach:
+
+- <span style="color:red">minimise relative RMSE value</span>: lowest error
+
+- <span style="color:red">maximise lack of correlation (LC)</span>: lowest Bias + Non-Unit
+
+- <span style="color:red">Is this a good rationale? Alternatives?</span>
+
+
+# plot overall population of simulations
+
+```{r PlotSimPop, fig.height=5,fig.width=10, echo=FALSE, warning=FALSE}
+statDF_crop %>%
+  ggplot(aes(y=lc, x=r_rmse)) + # not working yet
+  geom_point(alpha=0.5, aes(size=factor(SurfaceKl),
+                 colour=factor(KLReduction),
+                 shape=factor(RootFrontVelocity))) +
+#  geom_path(aes(x,y), data=dat) +
+ # stat_ellipse(type = "norm",aes(linetype = range_idx == 1)) + 
+ # scale_linetype_manual(values=c("blank", "dotted")) +
+ # scale_shape_manual(values=c(21,22,24))  +
+  facet_wrap(~Crop, scales= "free") +
+  ylab("Lack of correlation (LC, % MSE) ") +
+  xlab(" Relative RMSE (% observed mean)") # +
+  # geom_vline(data=bound_bf, aes(xintercept=r_rmse_best), linetype=2) + #
+  # geom_hline(data=bound_bf, aes(yintercept=lc_best), linetype=2) # 
+```
+
+
+```{r SimSelect, warning=FALSE}
 
 # idea ... loop across stages and treatment combinations
 # idea: use percentile to get parameter uncertanty 
-
+# use histogram of estimated values?
 # FIXME: It is unclear how to combine stats criteria to select what the best simulation is
 
+percSel <- 0.05 # percentile of simulations to be selected (Attention to index criteria)
+
 # finds lowest r_rmse for the establishment phase first
-bestFit_crop <- statDF_crop  %>%
-  group_by(Crop) %>%
+bestFit_sims <- statDF_crop  %>%
+  group_by(Crop, Stage, Irrigation) %>%
  # mutate(StatIndex = (100-lc)*r_rmse) %>%
  # mutate(StatIndex = pBias * rsr)  %>%
  # filter(StatIndex == min(StatIndex)) %>%
- filter(lc > quantile(lc, 0.75) ) %>% # get 25% least biased fits
+ filter(lc > quantile(lc, (1-percSel)) ) %>% # get least biased fits
 #  filter(pBias < ifelse(pBias<0, quantile(-1*pBias, 0.95), quantile(pBias, 0.95))) %>% # get 25% least biased fits
 #  filter(r_rmse == min(r_rmse) ) %>%   # get smallest error
-    filter(r_rmse == min(r_rmse) ) %>%   # get smallest error
-#  filter(lc > quantile(lc, 0.95) | rmse < quantile(rmse, 0.05))
+ filter(r_rmse == min(r_rmse) ) %>%   # get smallest error
+#  filter(lc > quantile(lc, (1-percSel)) | r_rmse < quantile(rmse, percSel))
   # mutate(pBias_pos = ifelse(pBias<0, -1*pBias, pBias)) %>% # adjust pBias to be always positive
   # filter(pBias_pos < quantile(pBias_pos, 0.05) | rsr < quantile(rsr, 0.05))
 #  filter(rsr == min(rsr) ) %>%   # get smallest error
-  filter(row_number()  == min(row_number())) # gets first set of indexes if still multiple choices - FIXME
+  filter(row_number() == min(row_number())) # FIXME: gets lowest param value if stats are the same 
 
 #write.csv(bestFit_crop, "testStatsBias.csv")
 
-rownames(bestFit_crop) <- paste0(bestFit_crop$Crop)
+# only for single selection
+ rownames(bestFit_sims) <- paste0(bestFit_sims$Crop,"_",bestFit_sims$Stage,"_",bestFit_sims$Irrigation) 
+# 
+  t(bestFit_sims) %>%
+    kable(format = "markdown", align = 'c')
+ 
 
- t(bestFit_crop) %>%
-   kable(format = "markdown", align = 'c')
-
- selecParamsEst <- as.character(unique(bestFit_crop$index_crop))
- RVF_luc_est <- bestFit_crop[bestFit_crop$Crop=="Lucerne",]$RootFrontVelocity
- RVF_rye_est <- bestFit_crop[bestFit_crop$Crop=="Ryegrass",]$RootFrontVelocity
+ selecParamsEst <- as.character(unique(bestFit_sims$index_crop))
+ RVF_luc_est <- bestFit_sims[bestFit_sims$Crop=="Lucerne",]$RootFrontVelocity
+ RVF_rye_est <- bestFit_sims[bestFit_sims$Crop=="Ryegrass",]$RootFrontVelocity
 
 ```
+
+# Evaluate residuals of best fit selection
+
+- We can look at independence of residuals
+- This will be quantitativelly picked by bias-stats indexes I'd believe (Check with Esther)
+- Visually it seems "rainfed" sims are less biased
+
+```{r, fig.height=10, fig.width=15, warning = FALSE}
+dataWork %>%
+  filter(index_crop_stage_irrig %in% as.character(bestFit_sims$index_crop_stage_irrig)) %>%
+#  mutate(Res = (Pred-Obs)/Obs*100) %>%
+  mutate(Res = Pred-Obs) %>%
+  ggplot(aes(x=Obs,y=Res, colour=factor(Irrigation))) +
+  geom_point(shape=21, alpha=0.8) +
+  geom_smooth(method='lm', alpha=0.5) +
+  geom_hline(yintercept=0, linetype=2, colour='darkgrey') +
+  facet_grid(Depth~Crop+Stage) +
+  ylab("Residue (mm/mm)") +
+  xlab("Observed mean value (mm/mm) ")
+```
+
+
+# Plot "best" parameter choice against all simulations
+
+```{r}
+
+```
+
+
 
 # How does the fit looks across all dataset?
 
@@ -771,6 +883,10 @@ ggpairs(aes(colour=Crop),labelHJust=1) +
 # ggpairs(statDF_cropOnly[,7:13], colour = statDF_cropOnly$Crop)
 
 ```
+
+- Aim: Decide which stats to use as the criteria to select "optimum" parameter combinations
+
+- Note that many stats are "highly" correlated (e.g. see nse x r_rmse x rmse)
 
 - So the idea is to combine stats that have low correlation with each other
 
