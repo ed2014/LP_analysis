@@ -102,6 +102,9 @@ levels(dataWork$RootFrontVelocity)
 #head(dataWork)
 summary(dataWork)
 str(dataWork)
+
+
+
 ```
 
 
@@ -336,6 +339,14 @@ dataWork$index_crop_depth <- paste0(dataWork$Crop, "_",
 
 dataWork$index_crop_depth <- as.factor(dataWork$index_crop_depth)
 
+# Best fit  by crop and irrigation ---------------------------------------
+dataWork$index_crop_irrig <- paste0(dataWork$Crop, "_",
+                              dataWork$Irrigation, "_SK:",
+                              dataWork$SurfaceKl, "_KR:",
+                              dataWork$KLReduction, "_RF:",
+                              dataWork$RootFrontVelocity)
+
+dataWork$index_crop_irrig <- as.factor(dataWork$index_crop_irrig)
 
 # Best fit  by crop, stage and depth ---------------------------------------
 dataWork$index_crop_stage_depth <- paste0(dataWork$Crop, "_",
@@ -348,7 +359,7 @@ dataWork$index_crop_stage_depth <- paste0(dataWork$Crop, "_",
 dataWork$index_crop_stage_depth <- as.factor(dataWork$index_crop_stage_depth)
 
 
-# Best fit  by crop and stage and treatment ---------------------------------------
+# Best fit  by crop and stage and irrigation ---------------------------------------
 dataWork$index_crop_stage_irrig <- paste0(dataWork$Crop, "_",
                               dataWork$Stage, "_Irr:",
                               dataWork$Irrigation, "_SK:",
@@ -357,6 +368,7 @@ dataWork$index_crop_stage_irrig <- paste0(dataWork$Crop, "_",
                               dataWork$RootFrontVelocity)
 
 dataWork$index_crop_stage_irrig <- as.factor(dataWork$index_crop_stage_irrig)
+
 
 # re-order fators for tidy up (ensure Obs is the LAST one)
 dataWork <- dataWork[c("Crop", "Irrigation",            
@@ -369,12 +381,13 @@ dataWork <- dataWork[c("Crop", "Irrigation",
                        "index_crop",
                        "index_crop_stage",
                        "index_crop_depth",
+                       "index_crop_irrig",
                        "index_crop_stage_depth",
                        "index_crop_stage_irrig",
                        "Pred", "Obs")]
 
-
-
+# save it for the sensitivity analysis
+write.csv(dataWork, "C:\\GitHubRepos\\FodderBeetRUE_2016\\workedData.csv")
 ```
 
 ## Calculate statistics
@@ -524,7 +537,7 @@ statDF_crop_stage_irrig %>%
 - Two issues: many parameter combiations are "similarly good" and "the best" depends on the choice of stats index
 - <span style="color:red">Does it make sense to pick one combination given the "equifinality"?</span>
 
-```{r PlotSimPop, fig.height=10,fig.width=15, echo=FALSE, warning=FALSE}
+```{r PlotSimPop2, fig.height=10,fig.width=15, echo=FALSE, warning=FALSE}
 
 statDF_crop_stage_irrig %>%
  # filter(RootFrontVelocity =="5") %>%
@@ -548,17 +561,17 @@ statDF_crop_stage_irrig %>%
   # geom_hline(data=bound_bf, aes(yintercept=lc_best), linetype=2) # 
 ```
 
-## Picking "the best" parameter combination
+## Picking "the single best" parameter combination
 
-As a example, and aware of equifinality shown above, let's choose a cretiria to select best param combination
+As a example, and aware of equifinality issues shown above, let's choose a cretiria to select only one best parameter combination.
 
-Subjective creteria for selection:
+Subjective criteria for selection:
 
-- The 15% simulations with less bias (low SB or pBias)
+- Subset the 15% "less biased" simulations (i.e. low SB or pBias close to zero)
 
-- The lowest error of this pre-selected population (Low RMSE or RSR)
+- From these, find the one with lowest error (low RMSE or RSR)
 
-- If multiple simulations fulfill the category take the one with lowest numeric parameter values (FIXME)
+- If multiple simulations fulfill criteria, take the one with lowest numeric parameter values (FIXME)
 
 ```{r SimSelect, warning=FALSE}
 
@@ -567,18 +580,20 @@ Subjective creteria for selection:
 # use histogram of estimated values?
 # FIXME: It is unclear how to combine stats criteria to select what the best simulation is
 
-percSel <- 0.15 # percentile of simulations to be selected (Attention to index criteria)
+percSel <- 0.25 # percentile of simulations to be selected (Attention to index criteria)
 
 # finds lowest r_rmse for the establishment phase first
 bestFit_sims <- statDF_crop_stage_irrig  %>%
-  group_by(Crop, Stage, Irrigation) %>%
+  group_by(Crop, Irrigation, Stage) %>%
  # mutate(StatIndex = (100-lc)*r_rmse) %>%
  # mutate(StatIndex = pBias * rsr)  %>%
  # filter(StatIndex == min(StatIndex)) %>%
- filter(lc > quantile(lc, (1-percSel)) ) %>% # get least biased fits
+# filter(lc > quantile(lc, (1-percSel)) ) %>% # get least biased fits
+ filter(r_rmse < quantile(r_rmse, (percSel)) ) %>% #
 #  filter(pBias < ifelse(pBias<0, quantile(-1*pBias, 0.95), quantile(pBias, 0.95))) %>% # get 25% least biased fits
 #  filter(r_rmse == min(r_rmse) ) %>%   # get smallest error
- filter(r_rmse == min(r_rmse) ) %>%   # get smallest error
+# filter(r_rmse == min(r_rmse) ) %>%   # get smallest error
+ filter(lc == max(lc) ) %>%   # get sm
 #  filter(lc > quantile(lc, (1-percSel)) | r_rmse < quantile(rmse, percSel))
   # mutate(pBias_pos = ifelse(pBias<0, -1*pBias, pBias)) %>% # adjust pBias to be always positive
   # filter(pBias_pos < quantile(pBias_pos, 0.05) | rsr < quantile(rsr, 0.05))
@@ -592,7 +607,7 @@ bestFit_sims <- statDF_crop_stage_irrig  %>%
                                   substr(bestFit_sims$Stage,1,3),"_",
                                   substr(bestFit_sims$Irrigation,1,3))
 
-# 
+# re-arrange as table df
  df <-  as.data.frame(t(bestFit_sims)) %>%
    mutate(Item = rownames(.))
   
@@ -602,16 +617,23 @@ bestFit_sims <- statDF_crop_stage_irrig  %>%
   # xtable()
  
 
- selecParamsEst <- as.character(unique(bestFit_sims$index_crop))
- RVF_luc_est <- bestFit_sims[bestFit_sims$Crop=="Lucerne",]$RootFrontVelocity
- RVF_rye_est <- bestFit_sims[bestFit_sims$Crop=="Ryegrass",]$RootFrontVelocity
+ # Isolate all best fits (FIXME: is this still used?)
+ selecParamsEst <- as.character(unique(bestFit_sims$index_crop_stage_irrig))
+ 
+ # Isolate the best RFV value for each crop 
+ RVF_luc_est <- bestFit_sims[bestFit_sims$Crop=="Lucerne" & 
+                               bestFit_sims$Irrigation =="No Irrigation" &
+                               bestFit_sims$Stage =="Establishment",]$RootFrontVelocity
+ 
+ RVF_rye_est <- bestFit_sims[bestFit_sims$Crop=="Ryegrass" & 
+                               bestFit_sims$Irrigation =="No Irrigation" &
+                               bestFit_sims$Stage =="Establishment",]$RootFrontVelocity
 
 ```
 
 # Evaluate residuals of best fit selection
 
-- We can look at distribution of residuals
-- Visually it seems "rainfed" sims are less biased
+- Visually it seems "rainfed" simulations are less biased
 - This will be quantitativelly picked by bias indexes I'd believe (Check with Esther)
 
 ```{r, fig.height=10, fig.width=15, warning = FALSE}
@@ -635,15 +657,61 @@ Select best fit for:
 - Dryland crops (rationale is that kl is expressed here)
 - Use Root Front Velocity from the "establishment" stage only (rationale is it's when roots grow)
 
-```{r, fig.width=10, fig.height=15}
+Repeat the stats calculation for crop by irrigation (i.e. across stages)
+
+
+```{r}
+# calculate stats
+statDF_crop_irrig <- dataWork  %>%
+filter(
+    (Crop == "Lucerne" & RootFrontVelocity == RVF_luc_est) |   
+    (Crop == "Ryegrass" & RootFrontVelocity == RVF_rye_est)) %>% # "optimum" RFV for "establishmnent" 
+group_by(Crop, Irrigation, # labels
+         index_crop,       # Index at crop level
+         index_crop_irrig, # corresponding index
+         SurfaceKl, KLReduction, RootFrontVelocity) %>% # index
+doStats() 
+
+summary(statDF_crop_irrig)
+```
+
+# Select best parameters for dryland conditions
+
+```{r}
+
+percSel <- 0.25 # percentile of simulations to be selected (Attention to index criteria)
+
+bestFit_dry <- statDF_crop_irrig  %>%
+ group_by(Crop, Irrigation) %>%
+ filter(r_rmse < quantile(r_rmse, (percSel))) %>%
+ filter(lc == max(lc)) %>%   # get sm
+ filter(row_number() == min(row_number())) %>% # FIXME: gets lowest param value for similar
+ filter(Irrigation == "No Irrigation") # keeps only the dry treats
+
+summary(bestFit_dry)
+
+```
+
+# Graph best fits
+
+Isolate the simulations for best parameters
+
+```{r}
 
 # isolate all data from "best" simulations
 sel1 <- dataWork %>%
-  filter(index_crop %in% as.character(bestFit_crop$index_crop)) 
+  filter(index_crop %in% as.character(bestFit_dry$index_crop)) 
 
 # finds the closest point to the date of establihment
 estLoc <- which.min(abs(as.Date(sel1$Date) - as.Date(estDate)))
 
+summary(sel1)
+
+```
+
+# Graph lucerne
+
+```{r, fig.width=10, fig.height=15}
 # Graph lucerne
 sel1 %>%
   filter(Crop == "Lucerne") %>%
@@ -657,7 +725,7 @@ sel1 %>%
   scale_x_date(labels = date_format("%b")) + scale_shape(solid = FALSE) + 
   geom_vline(xintercept = as.numeric(sel1$Date[estLoc]),linetype = 2) +
   ylab("Volumetric soil moisture (mm)") +
-  theme(text = element_text(size=16)) 
+  theme(text = element_text(size=16))
 ```
 
 # Graph ryegrass
@@ -677,6 +745,14 @@ sel1 %>%
   ylab("Volumetric soil moisture (mm)") +
   theme(text = element_text(size=16)) 
 ```
+
+
+## How are statistics across irrigation treatments and depths 
+
+```{r}
+
+```
+
 
 
 # Can we improve simulation sby removing specific layers with bad fit?
