@@ -699,24 +699,27 @@ Isolate the simulations for best parameters
 ```{r}
 
 # isolate all data from "best" simulations
-sel1 <- dataWork %>%
+best_Fit_all <- dataWork %>%
   filter(index_crop %in% as.character(bestFit_dry$index_crop)) 
 
 # finds the closest point to the date of establihment
 estLoc <- which.min(abs(as.Date(sel1$Date) - as.Date(estDate)))
 
-summary(sel1)
+summary(best_Fit_all)
 
 ```
 
 # Graph lucerne
 
 ```{r, fig.width=10, fig.height=15}
+
+thisCrop <- "Lucerne"
+
 # Graph lucerne
-sel1 %>%
-  filter(Crop == "Lucerne") %>%
+best_Fit_all %>%
+  filter(Crop == thisCrop) %>%
   ggplot() +
-  geom_point(data=dataWork[dataWork$Crop == "Lucerne",], aes(x=Date, y=Pred), colour="darkgrey",alpha=0.1) + # add shade of all sims
+  geom_point(data=dataWork[dataWork$Crop == thisCrop,], aes(x=Date, y=Pred), colour="darkgrey",alpha=0.1) + # add shade of all sims
   geom_point(aes(x=Date, y=Obs), size=2, shape = 1, colour="darkred") +
   geom_line(aes(x=Date, y=Pred),colour="black", size=1.2) +
 #  geom_point(aes(x=Date, y=Pred),colour="black", size=0.2) +
@@ -732,10 +735,12 @@ sel1 %>%
 
 ```{r,fig.width=10, fig.height=15}
 
-sel1 %>%
-  filter(Crop == "Ryegrass") %>%
+thisCrop <- "Ryegrass"
+
+best_Fit_all %>%
+  filter(Crop == thisCrop) %>%
   ggplot() +
-  geom_point(data=dataWork[dataWork$Crop == "Ryegrass",], aes(x=Date, y=Pred), colour="darkgrey",alpha=0.1) + # add shade of all sims
+  geom_point(data=dataWork[dataWork$Crop == thisCrop,], aes(x=Date, y=Pred), colour="darkgrey",alpha=0.1) + # add shade of all sims
   geom_point(aes(x=Date, y=Obs), size=2, shape = 1, colour="darkred") +
   geom_line(aes(x=Date, y=Pred),colour="black", size=1.2) +
   facet_grid(Depth~Irrigation, scales = "free") + 
@@ -750,7 +755,26 @@ sel1 %>%
 ## How are statistics across irrigation treatments and depths 
 
 ```{r}
+# calculate the stats for the BEST fit
+# For each layer and depth combination to show trends
+# IDEA: how much this afected water uptake?
 
+sel3 <- rbind(sel1, sel2)
+
+# calculates stats by depth
+g1 <- sel3 %>%
+  dplyr::group_by(Crop, Stage, Irrigation, Depth, Depth, SurfaceKl, KLReduction, RootFrontVelocity) %>%
+  dplyr::summarise(
+    n = n(),
+    r2 = gauchStats(Pred,Obs)[5],
+    rmse = round(rmse(Pred,Obs),3),
+    r_rmse = round(rmse(Pred,Obs)/mean(Obs)*100,3),
+    nse = round(NSE(Pred,Obs),1),
+    sb = gauchStats(Pred,Obs)[1],
+  nu = gauchStats(Pred,Obs)[2],
+  lc = gauchStats(Pred,Obs)[3]) 
+
+head(g1,20)
 ```
 
 
