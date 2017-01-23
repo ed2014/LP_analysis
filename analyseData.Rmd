@@ -569,8 +569,6 @@ bestFit_sims <- statDF_crop_stage_irrig  %>%
 
  # Isolate all best fits (FIXME: is this still used?)
  selecParamsEst <- as.character(unique(bestFit_sims$index_crop_stage_irrig))
- 
-
 
 ```
 
@@ -653,7 +651,7 @@ summary(bestFit_dry)
 
 # show best fit dry
 
-```{r}
+```{r, echo = FALSE}
 # re-arrange as table df
  df <-  as.data.frame(t(bestFit_dry)) %>%
    mutate(Item = rownames(.))
@@ -666,20 +664,18 @@ summary(bestFit_dry)
  write.csv(df, "BestFirDryland.csv")
 ```
 
-
-
 # Graph best fits
 
 Isolate the simulations for best parameters
 
-```{r}
+```{r, echo = FALSE}
 
 # isolate all data from "best" simulations
 simsWithBestFitForDry  <- dataWork %>%
   filter(index_crop %in% as.character(bestFit_dry$index_crop)) 
 
 # finds the closest point to the date of establihment
-estLoc <- which.min(abs(as.Date(simsWithBestFitForDry $Date) - as.Date(estDate)))
+estLoc <- which.min(abs(as.Date(simsWithBestFitForDry$Date) - as.Date(estDate)))
 
 summary(simsWithBestFitForDry )
 
@@ -687,7 +683,7 @@ summary(simsWithBestFitForDry )
 
 # Graph lucerne
 
-```{r, fig.width=12, fig.height=12}
+```{r, fig.width=12, fig.height=12, echo = FALSE}
 
 # Graph lucerne
 simsWithBestFitForDry  %>%
@@ -706,29 +702,12 @@ simsWithBestFitForDry  %>%
   theme(text = element_text(size=13))
 ```
 
-# Graph ryegrass
+## How are stats for all irrigation treatments 
 
-```{r,fig.width=10, fig.height=15, include = FALSE}
+- Using best-fit for dryland
+- Using RFV for dryland establishment
 
-thisCrop <- "Ryegrass"
-
-simsWithBestFitForDry  %>%
-  filter(Crop == thisCrop) %>%
-  ggplot() +
-  geom_point(data=dataWork[dataWork$Crop == thisCrop,], aes(x=Date, y=Pred), colour="darkgrey",alpha=0.1) + # add shade of all sims
-  geom_point(aes(x=Date, y=Obs), size=2, shape = 1, colour="darkred") +
-  geom_line(aes(x=Date, y=Pred),colour="black", size=1.2) +
-  facet_grid(Depth~Irrigation, scales = "free") + 
-  facet_grid(Depth~Irrigation) + 
-  scale_x_date(labels = date_format("%b")) + scale_shape(solid = FALSE) + 
-  geom_vline(xintercept = as.numeric(simsWithBestFitForDry $Date[estLoc]),linetype = 2) +
-  ylab("Volumetric soil moisture (mm)") +
-  theme(text = element_text(size=16)) 
-```
-
-## How are stats for all irrigation treatmsnts when we use dryland optimum?
-
-```{r,fig.width=10, fig.height=15}
+```{r, echo=FALSE}
 
 # calculate crop by irrigation stats (across stages)
 statDF_simsWithBestFitForDry  <- simsWithBestFitForDry  %>%
@@ -753,7 +732,7 @@ doStats()
 
 # print table of stats across all tretamenys
 
-```{r}
+```{r, echo = FALSE}
 
 tableOfStats <- statDF_simsWithBestFitForDry  %>%
   as.data.frame() %>%
@@ -771,14 +750,11 @@ tableOfStats %>%
 
 ```
 
-## How are statistics across irrigation treatments and depths 
+## How are statistics across different "soil depths" 
 
-```{r}
-# calculate the stats for the BEST fit
-# For each layer and depth combination to show trends
-# IDEA: how much this afected water uptake?
-
-# sel3 <- rbind(sel1, sel2)
+```{r }
+# calculate Gauch stats with BEST fit dry simulations
+# For each layer and depth combination
 
 # calculates stats by depth
 gauch_depth <- simsWithBestFitForDry  %>%
@@ -793,10 +769,12 @@ gauch_depth <- simsWithBestFitForDry  %>%
   nu = gauchStats(Pred,Obs)[2],
   lc = gauchStats(Pred,Obs)[3]) 
 
-head(gauch_depth,20)
+summary(gauch_depth)
 ```
 
 # summarise stats
+
+- Ranges of SB found
 
 ```{r}
 gauch_depth %>%
@@ -806,13 +784,11 @@ gauch_depth %>%
   dplyr::select(-(Depth:KLReduction), -(Stage), -(nu:lc))  %>%
   summarise_each(funs(min,max))
   
-  
 ```
-
 
 # How are the stats by treatment and depth?
 
-```{r, fig.width=15, fig.height=15, warning=FALSE }
+```{r, fig.width=15, fig.height=15, warning=FALSE, echo = FALSE }
 df <- gauch_depth %>%
   mutate(mse = rmse^2, sb=sb*mse, nu=nu*mse, lc=lc*mse) %>%
  # dplyr::select(-n, -r2,-rmse,-r_rmse,-nse) %>%
@@ -834,48 +810,33 @@ df <- gauch_depth %>%
 #  theme(text = element_text(size=rel(4))) +
 #  theme(legend.text=element_text(size=16)) + 
     theme(legend.title=element_blank()) +
-    theme(text = element_text(size=18)) 
+    theme(text = element_text(size=18)) +
+    theme(legend.position="top")
   
 ```
 
 ## Show population of simulations
 
-- Equifinality discussion
+- Equifinality aspects to discuss
+- i.e. Our "best-fit" is only one of many "good-enough" parameter combinations
 
-```{r}
-#Preparation for big graph
-
-# do Agregated stats .... i.e. best param combination for "crops" across irrigation and stages
-statDF_crop <- dataWork  %>%
-group_by(Crop, # labels
-         index_crop,       # Index at crop level
-         SurfaceKl, KLReduction, RootFrontVelocity) %>% # index
-doStats() 
-
-summary(statDF_crop)
-```
-
-# Define ranges of good fit
-
-- Creates a flag for simulations that are within ranges of optimum 
-
+First, find
 ```{r}
 
-# Across all simulations (crop/irrig/stage) flag that have the param comb of the best fit for dry crops
-flag_best <- statDF_crop_stage_irrig %>%
-  mutate(BestFit = ifelse(index_crop %in% 
-                            bestFit_dry$index_crop, # get param combination for best fit for dry
-                          "Best", "NotBest")) %>%
-  mutate(BestFit = factor(BestFit, levels=c("NotBest", "Best"))) 
+# Flag simulations that gave best fit (per crop only)
+temp_data_bf <- statDF_crop_stage_irrig %>%
+  mutate(BestFit = ifelse(index_crop %in% bestFit_dry$index_crop,"Best", "NotBest")) %>%
+  mutate(BestFit = factor(BestFit, levels=c("NotBest", "Best")))  %>%
+  filter(BestFit=="Best")
 
-#head(temp_data_bf[,])
+#summary(temp_data_bf)
 
-# calculate ranges of acceptable fit +- % of best stats for dry
-rangeBestFit <- 0.001 # % around best fit that is considered good enough (subjective equifinality)
+# create df with "best fit" stat values and ranges
+rangeBestFit <- 0.05 # % of value around rRMSE and LC
 
-bound_best <- flag_best %>%
+bound_bf <- temp_data_bf %>%
   filter(BestFit == "Best") %>%
-  group_by(Crop) %>%
+  group_by(Crop, Stage) %>%
   dplyr::select(lc, r_rmse) %>%
   mutate(r_rmse_best = r_rmse, lc_best = lc) %>%
   dplyr::select(-lc, -r_rmse) %>%
@@ -884,95 +845,40 @@ bound_best <- flag_best %>%
          lc_bestFit_low = (1-rangeBestFit)*lc_best,
          lc_bestFit_up = (1+rangeBestFit)*lc_best)
 
-#summary(bound_bf)
+summary(bound_bf)
 
-# Create a flag to point param combinations that have r_rmse and lc within range of best fit for dry
-flag_best_range <- merge(flag_best,bound_best, by=c("Crop"))
+# Create a flag in big dataset to point if r_rmse and lc are within range of good fit
+tempdf <- merge(temp_data_bf,bound_bf, by=c("Crop", "Stage"))
 
-data_bf <- flag_best_range %>%
+data_bf <- tempdf %>%
   rowwise() %>%
   mutate(r_rmse_range_flag = ifelse(r_rmse < r_rmse_bestFit_up, 1, 0)) %>%
-  mutate(lc_range_flag = ifelse(lc < lc_bestFit_low, 0, 1)) %>%
+  mutate(lc_range_flag = ifelse(lc <lc_bestFit_low, 0, 1)) %>%
   mutate(range_idx = r_rmse_range_flag * lc_range_flag) %>%
   dplyr::select(-r_rmse_range_flag,-lc_range_flag,-(r_rmse_bestFit_low:lc_bestFit_up))
-
-summary(data_bf)
-
-
 ```
 
-```{r, fig.width=15, fig.height=8, warning=FALSE}
+# Pin-point best-fit parameter within populations of simulations
 
-data_bf %>%
-  ggplot(aes(y=r_rmse, x=lc)) + # not working yet
-  geom_point(alpha=0.8, aes(size=factor(KLReduction),
-                 colour=factor(SurfaceKl),
-                 shape=factor(RootFrontVelocity))) +
-  scale_shape_discrete(solid=F) +
-  stat_ellipse(type = "norm",aes(linetype = range_idx == 1)) + 
-  scale_linetype_manual(values=c("blank", "dotted")) +
-#  scale_shape_manual(values=c(21,22,24))  +
-#  facet_wrap(Irrigation~Crop+Stage, scales = "free") +
-  facet_wrap(Crop~Stage, scales = "free") +
- # ylim(min(statDF_crop$lc),max(statDF_crop$lc))+
- # geom_vline(aes(xintercept=0), linetype=2) + xlab("Percent Bias (%) ") + ylab("RMSE-observations standard deviation (RSR, %)")
-  xlab("Lack of correlation (LC, % MSE) ") + ylab(" Relative RMSE (% observed mean)") +
-    theme(text = element_text(size=18)) +
-    labs(shape="Root Front Velocity (RFV)", 
-         colour="Surface kl (kls)", 
-         size="kl decay (kld)", linetype="Best fit +-1%")
-   # +
-```
-
-# Plot overall population of simulations
-
-- Show model performance (i.e. r_rmse and lc) for each different parameter combination
-- Huge range of individua model perfirmance
-
-```{r PlotSimPop, fig.height=10,fig.width=15, echo=FALSE, warning=FALSE}
+```{r PlotSimPop, fig.height=20,fig.width=15, echo=FALSE, warning=FALSE}
 
 statDF_crop_stage_irrig %>%
   ggplot(aes(y=r_rmse, x=lc)) + # not working yet
   geom_point(alpha=0.8, aes(size=factor(KLReduction),
                  colour=factor(SurfaceKl),
                  shape=factor(RootFrontVelocity))) +
-  scale_shape_discrete(solid=F) +
-  facet_wrap(Irrigation~Crop+Stage, scales = "free",ncol=4) +
+  scale_shape_discrete(solid=F)  +
   xlab("Lack of correlation (LC, % MSE) ") + ylab(" Relative RMSE (% observed mean)") +
   labs(shape="Root Front Velocity (RFV)", colour="Surface kl (kls)", size="kl Reduction (klr)")+
-  theme(text = element_text(size=16))
+  theme(text = element_text(size=16))+
+  theme(legend.position="top")  +
+  facet_wrap(Crop+Stage~Irrigation,ncol=4) +
+  geom_vline(data=temp_data_bf,aes(xintercept=temp_data_bf$lc), linetype=2) + 
+ geom_hline(data=temp_data_bf, aes(yintercept=temp_data_bf$r_rmse), linetype=2) 
+# geom_vline(data=temp_data_bf,aes(xintercept=temp_data_bf[temp_data_bf$BestFit=="Best",]$lc), linetype=2) + 
+# geom_hline(data=temp_data_bf, aes(yintercept=temp_data_bf[temp_data_bf$BestFit=="Best",]$r_rmse), linetype=2) 
 
 ```
 
-- Note that if we decide to use different statistics (RSE and pBias now) ... a different picture emerges
-- Although patterns differ the "best" set of parameters are generally the same
-- <span style="color:red">Which set of stats indexes are the best to be used?</span>
-- Two issues: many parameter combiations are "similarly good" and "the best" depends on the choice of stats index
-- <span style="color:red">Does it make sense to pick one combination given the "equifinality"?</span>
 
-```{r PlotSimPop2, fig.height=10,fig.width=15, echo=FALSE, warning=FALSE, include=FALSE}
-
-# NOT USED - similar results as rRMSE and LC - not excactly but very close 
-
-statDF_crop_stage_irrig %>%
- # filter(RootFrontVelocity =="5") %>%
-#  ggplot(aes(y=r_rmse, x=lc)) + # not working yet
-  ggplot(aes(y=rsr, x=pBias)) + # not working yet
-  geom_point(alpha=0.8, aes(size=factor(KLReduction),
-                 colour=factor(SurfaceKl),
-                 shape=factor(RootFrontVelocity))) +
-  scale_shape_discrete(solid=F) +
-#  geom_path(aes(x,y), data=dat) +
- # stat_ellipse(type = "norm",aes(linetype = range_idx == 1)) + 
- # scale_linetype_manual(values=c("blank", "dotted")) +
- # scale_shape_manual(values=c(21,22,24))  +
-#  facet_wrap(Irrigation~Crop+Stage, scales = "free") +
-  facet_grid(Irrigation~Crop+Stage) +
- # ylim(min(statDF_crop_stage_irrig$LC),max(statDF_crop_stage_irrig$LC))+
-  geom_vline(aes(xintercept=0), linetype=2) + xlab("Percent Bias (%) ") + ylab("RMSE-observations standard deviation (RSR, %)")
- # xlab("Lack of correlation (LC, % MSE) ") + ylab(" Relative RMSE (% observed mean)")
-   # +
-  # geom_vline(data=bound_bf, aes(xintercept=r_rmse_best), linetype=2) + #
-  # geom_hline(data=bound_bf, aes(yintercept=lc_best), linetype=2) # 
-```
 
