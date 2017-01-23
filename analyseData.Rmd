@@ -817,10 +817,10 @@ df <- gauch_depth %>%
 
 ## Show population of simulations
 
-- Equifinality aspects to discuss
+- Equifinality aspects to analyse
 - i.e. Our "best-fit" is only one of many "good-enough" parameter combinations
 
-First, find
+Flag "best-fit" parameters across simulations for each "crop by stage by water-supply"
 ```{r}
 
 # Flag simulations that gave best fit (per crop only)
@@ -831,11 +831,20 @@ temp_data_bf <- statDF_crop_stage_irrig %>%
 
 #summary(temp_data_bf)
 
+
+```
+
+Flag "behavioral" simulations (i.e. subjective "similarly-good" simulations) - NOT USED yet
+
+```{r}
+
+# FIXME: untested
+
 # create df with "best fit" stat values and ranges
-rangeBestFit <- 0.05 # % of value around rRMSE and LC
+rangeBestFit <- 0.025 # % of value around rRMSE and LC
 
 bound_bf <- temp_data_bf %>%
-  filter(BestFit == "Best") %>%
+  filter(BestFit=="Best") %>%
   group_by(Crop, Stage) %>%
   dplyr::select(lc, r_rmse) %>%
   mutate(r_rmse_best = r_rmse, lc_best = lc) %>%
@@ -847,36 +856,51 @@ bound_bf <- temp_data_bf %>%
 
 summary(bound_bf)
 
-# Create a flag in big dataset to point if r_rmse and lc are within range of good fit
-tempdf <- merge(temp_data_bf,bound_bf, by=c("Crop", "Stage"))
+```
 
+```{r}
+# Create a flag in big dataset to point if r_rmse and lc are within range of good fit
+tempdf <- merge(statDF_crop_stage_irrig,bound_bf, by=c("Crop", "Stage"))
+
+# quick in between function
+is.between <- function(x, a, b) {
+(x - a)  *  (b - x) > 0
+}
+
+# create a full dataset with flags for best fit boundaries
 data_bf <- tempdf %>%
   rowwise() %>%
-  mutate(r_rmse_range_flag = ifelse(r_rmse < r_rmse_bestFit_up, 1, 0)) %>%
-  mutate(lc_range_flag = ifelse(lc <lc_bestFit_low, 0, 1)) %>%
+  mutate(r_rmse_range_flag = ifelse(is.between(r_rmse,r_rmse_bestFit_low,r_rmse_bestFit_up), 1, 0)) %>%
+  mutate(lc_range_flag = ifelse(is.between(lc,lc_bestFit_low,lc_bestFit_up), 1, 0)) %>%
   mutate(range_idx = r_rmse_range_flag * lc_range_flag) %>%
-  dplyr::select(-r_rmse_range_flag,-lc_range_flag,-(r_rmse_bestFit_low:lc_bestFit_up))
+  dplyr::select(-(r_rmse_range_flag:lc_range_flag),-(r_rmse_bestFit_low:lc_bestFit_up))
 ```
 
 # Pin-point best-fit parameter within populations of simulations
 
+- Note that the "best-fit" for dry is not necessarily the best fit for all 
+
 ```{r PlotSimPop, fig.height=20,fig.width=15, echo=FALSE, warning=FALSE}
 
-statDF_crop_stage_irrig %>%
+data_bf %>%
   ggplot(aes(y=r_rmse, x=lc)) + # not working yet
   geom_point(alpha=0.8, aes(size=factor(KLReduction),
                  colour=factor(SurfaceKl),
                  shape=factor(RootFrontVelocity))) +
   scale_shape_discrete(solid=F)  +
   xlab("Lack of correlation (LC, % MSE) ") + ylab(" Relative RMSE (% observed mean)") +
-  labs(shape="Root Front Velocity (RFV)", colour="Surface kl (kls)", size="kl Reduction (klr)")+
+  # labs(shape="Root Front Velocity (RFV)", colour="Surface kl (kls)", size="kl Reduction (klr)")+
+  labs(shape="RFV", 
+       colour=expression("kl"["s"]), 
+       size=expression("kl"["d"])) +
   theme(text = element_text(size=16))+
   theme(legend.position="top")  +
-  facet_wrap(Crop+Stage~Irrigation,ncol=4) +
-  geom_vline(data=temp_data_bf,aes(xintercept=temp_data_bf$lc), linetype=2) + 
- geom_hline(data=temp_data_bf, aes(yintercept=temp_data_bf$r_rmse), linetype=2) 
-# geom_vline(data=temp_data_bf,aes(xintercept=temp_data_bf[temp_data_bf$BestFit=="Best",]$lc), linetype=2) + 
-# geom_hline(data=temp_data_bf, aes(yintercept=temp_data_bf[temp_data_bf$BestFit=="Best",]$r_rmse), linetype=2) 
+  facet_wrap(Crop+Stage~Irrigation,ncol=4) + # FIXME: Order matters - facet_grid might do the job?
+  geom_vline(data=temp_data_bf,aes(xintercept=temp_data_bf$lc), linetype=2, colour="darkgrey") + 
+  geom_hline(data=temp_data_bf, aes(yintercept=temp_data_bf$r_rmse), linetype=2, colour="darkgrey") 
+  # now add elipse around "good-enough" simulations - FIXME 
+ # + stat_ellipse(type = "norm", aes(linetype = range_idx == 1)) + 
+ #  scale_linetype_manual(values=c("blank", "dotted")) 
 
 ```
 
