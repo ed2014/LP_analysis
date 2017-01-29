@@ -702,6 +702,27 @@ simsWithBestFitForDry  %>%
   theme(text = element_text(size=13))
 ```
 
+## XY graph of above best fit dataset 
+
+```{r, fig.width=10, fig.height=10, echo = FALSE}
+
+simsWithBestFitForDry %>%
+  ggplot(aes(x=Pred, y=Obs, group = factor(Depth),fill=factor(Depth))) +
+  stat_smooth(method = "lm", se = TRUE, 
+              linetype = 3,aes(colour=factor(Depth))) +
+  geom_point(aes(colour=factor(Depth))) +
+  facet_grid(Stage~Irrigation, scales = "free") +
+  geom_abline(intercept = 0, slope = 1) + 
+  coord_fixed(ratio = 1) +
+  xlim(0,max(simsWithBestFitForDry$Pred,simsWithBestFitForDry$Obs)) +
+  ylim(0,max(simsWithBestFitForDry$Pred,simsWithBestFitForDry$Obs)) +
+  theme(text = element_text(size=13))+
+  ylab("Observed volumetric soil water (mm/mm)") +
+  xlab("Predicted volumetric soil water (mm/mm)") +
+  labs(fill="Soil depth (cm)") + guides(colour=FALSE) 
+```
+
+
 ## How are stats for all irrigation treatments 
 
 - Using best-fit for dryland
