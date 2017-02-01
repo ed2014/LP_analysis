@@ -156,16 +156,128 @@ si_df_final %>%
   mutate(Si_Item = factor(Si_Item, levels = c("SurfaceKl",
                                  "KLReduction",
                                  "RootFrontVelocity", 
+                                 "Interactions"),
+                          labels = c("Surface kl",
+                                 "Rate of kl decay",
+                                 "RFV", 
                                  "Interactions")
                           )) %>%
   ggplot(aes(x=rev(thisIrrig), y=Si_Value, fill=factor(Si_Item))) +
   geom_bar(stat="identity") +
   facet_grid(thisCrop~thisStage) +
-  ylab("Sensitivity index (%)") +
-  xlab(" Water supply treatment") +
+  ylab("Share of total variability (%)") +
+  xlab("Water supply treatment") +
   theme(axis.text.x = element_text(angle = 45, hjust=1)) + theme(legend.title=element_blank()) +
   theme(text = element_text(size=16))
 ```
 
+Doing 
 
+```{r AbsoluteSS_for Esther}
+si_df_final <- NULL
+si_df_final_m <- NULL
+
+for(i in 1:length(simIndexUnique)) {
+  
+  # do anova
+  thisDf <- df_av %>% filter(simIndex == simIndexUnique[i])
+  anova <- aov(Pred ~  SurfaceKl*KLReduction*RootFrontVelocity, data = thisDf)
+  anovaTable <- summary(anova)
+  
+  # print(simIndexUnique[i])
+  # print(summary(anova))
+  
+  # get vector with sums of squares
+  anova_SS <- anovaTable[[1]]$'Sum Sq'
+ #  anova_SS <- anovaTable[[1]]$'Mean Sq'# esther suggested SS to be used - test only
+  
+  # internal df to hold ss values
+  df_ss <- NULL
+  df_ss <- data.frame(SS = anova_SS)
+
+  #retrieves row names and load into result df
+  namesAnTab <- rownames(anovaTable[[1]])
+  rownames (df_ss) <- gsub(" ","",namesAnTab) # remove spaces
+  
+  # get names and count of main factors
+  mainFactNames <- rownames (df_ss)[-grep(':',rownames (df_ss))] # isolate the main factors from
+  noFactors <- length(mainFactNames)  # counts row names that do not have ":" i.e. from interaction
+ 
+ # Creates a column with "normalised" percent of total variation (SS) 
+ # df_ss$SS_p <- round((df_ss$SS/sum(df_ss$SS))*100,3)
+  # df_ss$SS_p <- round((df_ss$MS/sum(df_ss$MS))*100,3) # esther suggested SS to be used - test only
+  
+  df_ss$SS_p <- df_ss$SS # just for testing - esthers request
+  
+  # Add SS of interections as a new vector element that adds to 100%
+sumInt <- sum(df_ss$SS_p[(noFactors+1):length(namesAnTab)]) # Calculate sums total SS due to interactions (i.e. sums every SS that is not main factor)
+si_Out1 <- c(df_ss$SS_p[1:noFactors], sumInt) # vector with si values in %
+
+# Create the Si dataframe and graph it
+df_si <- data.frame(si_Out1)
+rownames(df_si) <- gsub(" ","",c(mainFactNames[1:noFactors], "Interactions"))
+
+df_si$FactorName <- rownames(df_si)
+colnames(df_si) <- c("PercTotal_SS", "FactorName") 
+
+
+  # Add labels
+  df_si <- data.frame(thisCrop = thisDf$Crop[1],
+                   thisStage = thisDf$Stage[1],
+                   thisIrrig = thisDf$Irrigation[1],
+                   si_Out1[1], 
+                   si_Out1[2], 
+                   si_Out1[3],
+                   si_Out1[4]
+                   )
+ 
+ noLabels <- 3 # FIXME: do it prittier later
+
+  # label Si df FIXME: Automate this
+  colnames(df_si)[noLabels+1] <- gsub(" ","",paste0(mainFactNames[1]))
+  colnames(df_si)[noLabels+2] <- gsub(" ","",paste0(mainFactNames[2]))
+  colnames(df_si)[noLabels+3] <- gsub(" ","",paste0(mainFactNames[3]))
+  colnames(df_si)[noLabels+4] <- "Interactions"
+  
+  # Appends to final Si df
+  if(i==1){ # FIXME: Untested
+    si_df_final <- data.frame(df_si)  
+    } else {
+    si_df_final <- rbind(si_df_final, df_si)
+    }
+
+}
+
+summary(si_df_final)
+
+
+
+
+
+
+```
+
+```{r, fig.height=8,fig.width=10, echo=FALSE}
+# graph
+si_df_final$thisIrrig <- factor(si_df_final$thisIrrig, levels=c("No Irrigation",
+                                 "Low Frequency",
+                                 "Medium Frequency", 
+                                 "High Frequency"))
+
+si_df_final %>%
+  tidyr::gather("Si_Item","Si_Value", SurfaceKl:Interactions) %>%
+  mutate(Si_Item = factor(Si_Item,
+  levels = c("SurfaceKl","KLReduction","RootFrontVelocity","Interactions"),
+  labels = c(expression("kl"["s"]),expression(lambda["kl"]),"RFV", "Interactions") # FIXME: synthax to use expressions here?
+                          )) %>%
+  ggplot(aes(x=rev(thisIrrig), y=Si_Value, fill=factor(Si_Item))) +
+  geom_bar(stat="identity") +
+  facet_grid(thisCrop~thisStage, scales = "free") +
+  ylab("SS") +
+  xlab(" Water supply treatment") +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) + theme(legend.title=element_blank()) +
+  theme(text = element_text(size=16))
+  
+
+```
 

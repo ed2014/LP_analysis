@@ -1,0 +1,100 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(xtable)
+library(knitr)
+library(RSQLite)
+library(lubridate)
+library(stringr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library (hydroGOF)
+library(scales)
+library(GGally)
+library(xtable)
+```
+
+# Read observed data by replicate
+
+```{r}
+repRaw <- read.table("K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\LP_SW_Replicate.txt", 
+                    header = TRUE)
+summary(repRaw)
+```
+
+```{r}
+repWork <- repRaw %>%
+  mutate(Date = dmy(Date), Depth = factor(Depth),Crop = factor(Crop),Irrigation = factor(Irrigation))%>%
+  rowwise() %>% # This is important!!!!!
+  mutate(Obs_av = (B1+B2+B3+B4)/4)%>%
+  mutate(CI95_down = (Obs_av-3.182*(sd(c(B1,B2,B3,B4))/sqrt(4)))) %>% # FIXME: check with Esther how to
+  mutate(CI95_up = (Obs_av+3.182*sd(c(B1,B2,B3,B4)/sqrt(4)))) 
+
+
+repWork$Depth <- gsub("D", "", repWork$Depth)
+repWork$Depth <- factor(repWork$Depth, 
+                         levels = c(7, 23, 30, 50, 70, 90, 110, 130, 150))
+repWork$Depth <- as.factor(repWork$Depth)
+
+# Create separate Establishment and Regrowth periods
+estDate <- "2012-06-01" # FIXME: find a more functional criteria later
+
+repWork$Stage <- as.factor(ifelse(repWork$Date<=estDate,"Establishment","Regrowth"))
+# sort out irrigation treat names
+repWork <- repWork %>% mutate(Irrigation = factor(Irrigation, 
+                                                    levels=c("None", 
+                                                             "ThreeWeekly",
+                                                             "OnePerWeek",
+                                                             "TwoPerWeek"))) # re-order factors
+levels(repWork$Irrigation) <- c("No Irrigation",
+                                 "Low Frequency",
+                                 "Medium Frequency", 
+                                 "High Frequency") # rename factors, attention to match!
+# sort out crop names
+repWork <- repWork %>% mutate(Crop=factor(Crop, levels=c("Lucerne", "Pasture"))) # re-order factors
+levels(repWork$Crop) <- c("Lucerne","Ryegrass") # rename factors, attention to match!
+
+
+# Check levels
+levels(repWork$Depth)
+
+# Check
+#head(dataWork)
+summary(repWork)
+str(repWork)
+summary(repWork)
+
+
+
+
+```
+
+
+```{r, fig.height=15,fig.width=15, echo=FALSE}
+repWork %>%
+  dplyr::select(Crop, Date, Irrigation,Depth, B1:Obs_av) %>%
+  tidyr::gather("Rep","Obs",B1:Obs_av) %>% # FIXME: check names to be used in raw data
+  mutate(Rep = factor(Rep)) %>%
+  filter(Rep != "Obs_av") %>% 
+  ggplot(aes(x=Date, y=Obs)) +
+  geom_point(aes(colour=factor(Rep)), alpha=0.5) +
+  geom_point(data=repWork, aes(x=Date, y=Obs_av), shape=2, colour="black") +
+  geom_line(data=repWork, aes(x=Date, y=CI95_down), linetype=22, colour="darkgrey") +
+  geom_line(data=repWork, aes(x=Date, y=CI95_up), linetype=2, colour="darkgrey") +
+  facet_grid(Depth~Crop+Irrigation) + 
+  ylab("Volumetric soil moisture (mm)") +
+  theme(text = element_text(size=18)) +
+    labs(colour="Experiental replicate") + theme(legend.position="top")+
+  geom_vline(xintercept = as.numeric(as.Date(ymd(estDate))), linetype=2) 
+```
+
+# Save the baby
+
+```{r}
+write.csv(repWork, "K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\worked_observed_data.csv",row.names=FALSE)
+```
+

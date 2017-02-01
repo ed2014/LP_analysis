@@ -98,13 +98,31 @@ levels(dataWork$SurfaceKl)
 levels(dataWork$KLReduction)
 levels(dataWork$RootFrontVelocity)
 
+
+
+
+
+```
+
+```{r MergeObserved}
+
+temp_obs <- read.csv("K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\worked_observed_data.csv")
+dataWork_merge <- merge(dataWork,temp_obs, by=c("Depth","Crop","Irrigation", "Date"))
+  
+  
+```
+
+
+
+```{r}
 # Check
 #head(dataWork)
-summary(dataWork)
+summary(dataWork_merge)
+
+```
+
+```{r}
 str(dataWork)
-
-
-
 ```
 
 
@@ -127,7 +145,7 @@ summary(dataWork)
 
 ## Check Observed and Simulated time-series
 
-- Show time-series for dryland crops
+- Show time-series
 
 - Simulated parameter combinations' data (grey) and observed values (red)
 
@@ -135,15 +153,15 @@ summary(dataWork)
 
 - <span style="color:red">To discuss: Is this a sign that parameter ranges should be expanded???</span>  
 
-```{r GraphExample, fig.height=18,fig.width=12, echo=FALSE}
+```{r GraphExample, fig.height=8,fig.width=15, echo=FALSE}
 
 # example of dryland crops
 dataWork %>%
-  filter(Irrigation == "No Irrigation") %>%
+ # filter(Irrigation == "No Irrigation") %>%
   ggplot() +
   geom_point(aes(x=Date, y=Pred),colour="grey") +
-  geom_point(aes(x=Date, y=Obs), size=2, colour="darkred") +
-  facet_grid(Depth~Crop) +
+  geom_point(aes(x=Date, y=Obs), size=1.5, colour="darkred") +
+  facet_grid(Depth~Crop+Irrigation) +
   geom_vline(xintercept = as.numeric(as.Date(ymd(estDate))), linetype=2) 
 
 ```
@@ -414,7 +432,7 @@ tempDF <- dataWork %>%
 
 - Mock values of 95%CI until we get actual data from Hamish
 
-```{r, fig.height=10, fig.width=12, warning = FALSE}
+```{r, fig.height=10, fig.width=12, warning = FALSE, include = FALSE}
 
 # This has to be done for stats batch "best" fit or stats calculation
 tempDF  %>%
@@ -704,14 +722,14 @@ simsWithBestFitForDry  %>%
 
 ## XY graph of above best fit dataset 
 
-```{r, fig.width=10, fig.height=10, echo = FALSE}
+```{r, fig.width=10, fig.height=8, echo = FALSE}
 
 simsWithBestFitForDry %>%
   ggplot(aes(x=Pred, y=Obs, group = factor(Depth),fill=factor(Depth))) +
   stat_smooth(method = "lm", se = TRUE, 
               linetype = 3,aes(colour=factor(Depth))) +
-  geom_point(aes(colour=factor(Depth))) +
-  facet_grid(Stage~Irrigation, scales = "free") +
+  geom_point(aes(colour=factor(Depth)), alpha=0.5) +
+  facet_grid(Irrigation~Crop+Stage, scales = "free") +
   geom_abline(intercept = 0, slope = 1) + 
   coord_fixed(ratio = 1) +
   xlim(0,max(simsWithBestFitForDry$Pred,simsWithBestFitForDry$Obs)) +
@@ -827,11 +845,11 @@ df <- gauch_depth %>%
   geom_bar(stat='identity') +
   facet_grid(Irrigation~Crop+Stage,scales = "free") +
   coord_flip() + 
-  labs(x = "Soil depth (cm)", y = "Mean square error ((mm/mm))MSE)") +
+  labs(x = "Soil depth (cm)", y = "Mean square error (MSE)") +
 #  theme(text = element_text(size=rel(4))) +
 #  theme(legend.text=element_text(size=16)) + 
     theme(legend.title=element_blank()) +
-    theme(text = element_text(size=18)) +
+    theme(text = element_text(size=20)) +
     theme(legend.position="top")
   
 ```
@@ -913,7 +931,7 @@ data_bf %>%
   # labs(shape="Root Front Velocity (RFV)", colour="Surface kl (kls)", size="kl Reduction (klr)")+
   labs(shape="RFV", 
        colour=expression("kl"["s"]), 
-       size=expression("kl"["d"])) +
+       size=expression(lambda["kl"])) +
   theme(text = element_text(size=16))+
   theme(legend.position="top")  +
   facet_wrap(Crop+Stage~Irrigation,ncol=4) + # FIXME: Order matters - facet_grid might do the job?
