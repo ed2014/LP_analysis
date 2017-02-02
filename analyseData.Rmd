@@ -40,19 +40,38 @@ options("scipen"=100, "digits"=4) # prints not in scientific notation
 - Get data formats right
 
 
-```{r ReadData, echo=FALSE,include=FALSE, echo=FALSE}
+```{r ReadData, echo=FALSE,include=TRUE, echo=FALSE}
 
 #dataRaw <- read.csv("C:\\GitHubRepos\\LP_analysis\\ObsPre.csv", header = TRUE, skip = 4)
-dataRaw <- read.csv("K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\ObsPre.csv", 
+# dataRaw <- read.csv("K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\ObsPre.csv", 
+#                     header = TRUE)
+
+dataRaw <- read.csv("K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\ObsPreSD15.csv", 
                     header = TRUE)
 #head(dataRaw)
 summary(dataRaw)
 ```
 
+
+# merge with observation per replicate
+
+
+```{r}
+temp_obs <- read.csv("K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\worked_observed_data.csv")
+
+head(temp_obs)
+dataRaw_merge <- merge(dataRaw,temp_obs, by=c("Depth","Crop","Irrigation", "Date"))
+  
+```
+```{r}
+head(dataRaw_merge)
+```
+
+
 ```{r dataTidy}
 
 # Create working df and sort out formats - 
-dataWork <- as.data.frame(dataRaw)
+dataWork <- as.data.frame(dataRaw_merge)
 
 # Force parameter values to factors
 dataWork$Date <- as.Date(ymd(dataWork$Date))
@@ -90,7 +109,7 @@ dataWork <- dataWork %>% mutate(Crop=factor(Crop, levels=c("Lucerne", "Pasture")
 levels(dataWork$Crop) <- c("Lucerne","Ryegrass") # rename factors, attention to match!
 
 # revove unrealistic levels (FIXME: decibe about this after discussing with Hamish)
-dataWork <- dataWork %>% filter(SurfaceKl != "20") 
+#dataWork <- dataWork %>% filter(SurfaceKl != "20") 
 
 # Check levels
 levels(dataWork$Depth)
@@ -98,26 +117,13 @@ levels(dataWork$SurfaceKl)
 levels(dataWork$KLReduction)
 levels(dataWork$RootFrontVelocity)
 
-
-
-
-
 ```
-
-```{r MergeObserved}
-
-temp_obs <- read.csv("K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\worked_observed_data.csv")
-dataWork_merge <- merge(dataWork,temp_obs, by=c("Depth","Crop","Irrigation", "Date"))
-  
-  
-```
-
 
 
 ```{r}
 # Check
 #head(dataWork)
-summary(dataWork_merge)
+summary(dataWork)
 
 ```
 
@@ -172,45 +178,45 @@ dataWork %>%
 
 # This will be deleted one we have actual values available
 
-df_mock <- dataWork %>%
-  filter(SurfaceKl == "3", KLReduction=="-0.01", RootFrontVelocity=="5") %>% # get a single parameter combination
-  mutate(Rep_1 = Obs*runif(1, min = 0.8, max = 1.2)) %>%
-  mutate(Rep_2 = Obs*runif(1, min = 0.8, max = 1.2)) %>%
-  mutate(Rep_3 = Obs*runif(1, min = 0.8, max = 1.2)) %>%
-  mutate(Rep_4 = Obs*runif(1, min = 0.8, max = 1.2)) %>%
-  rowwise() %>%
-  mutate(Obs_av = sum(Rep_1,Rep_2,Rep_3,Rep_4)/4)  %>%
-  mutate(CI95_down = (Obs_av-3.182*sd(c(Rep_1,Rep_2,Rep_3, Rep_4)))) %>% # FIXME: check with Esther how to
-  mutate(CI95_up = (Obs_av+3.182*sd(c(Rep_1,Rep_2,Rep_3, Rep_4)))) # calculate 95% CI properly
-
-# head(df_mock)
+# df_mock <- dataWork %>%
+#   filter(SurfaceKl == "3", KLReduction=="-0.01", RootFrontVelocity=="5") %>% # get a single parameter combination
+#   mutate(Rep_1 = Obs*runif(1, min = 0.8, max = 1.2)) %>%
+#   mutate(Rep_2 = Obs*runif(1, min = 0.8, max = 1.2)) %>%
+#   mutate(Rep_3 = Obs*runif(1, min = 0.8, max = 1.2)) %>%
+#   mutate(Rep_4 = Obs*runif(1, min = 0.8, max = 1.2)) %>%
+#   rowwise() %>%
+#   mutate(Obs_av = sum(Rep_1,Rep_2,Rep_3,Rep_4)/4)  %>%
+#   mutate(CI95_down = (Obs_av-3.182*sd(c(Rep_1,Rep_2,Rep_3, Rep_4)))) %>% # FIXME: check with Esther how to
+#   mutate(CI95_up = (Obs_av+3.182*sd(c(Rep_1,Rep_2,Rep_3, Rep_4)))) # calculate 95% CI properly
+# 
+# # head(df_mock)
 
 ```
 
 ## Plot observations and uncertanty
 ```{r, include=FALSE, echo=FALSE}
 # check if moch average is close to real average
-plot(df_mock$Obs_av,df_mock$Obs)
+# plot(df_mock$Obs_av,df_mock$Obs)
 ```
 
 ```{r, fig.height=15,fig.width=15, echo=FALSE}
-
-df_mock %>%
-  dplyr::select(-Stage,-(SurfaceKl:Obs)) %>%
-  dplyr::select(Crop, Date, Irrigation,Depth, Rep_1:Obs_av) %>%
-  tidyr::gather("Rep","Obs",Rep_1:Obs_av) %>% # FIXME: check names to be used in raw data
-  mutate(Rep = factor(Rep)) %>%
-  filter(Rep != "Obs_av") %>% 
-  ggplot(aes(x=Date, y=Obs)) +
-  geom_point(aes(colour=factor(Rep)), alpha=0.5) +
-  geom_smooth(colour="black", size=1.1) +
-  geom_line(data=df_mock, aes(x=Date, y=CI95_down), linetype=2, colour="darkgrey") +
-  geom_line(data=df_mock, aes(x=Date, y=CI95_up), linetype=2, colour="darkgrey") +
-  facet_grid(Depth~Crop+Irrigation) + 
-#  scale_x_date(labels = date_format("%b")) + scale_shape(solid = FALSE) + 
-  ylab("Volumetric soil moisture (mm)") +
-  theme(text = element_text(size=18)) +
-    labs(colour="Experiental replicate") + theme(legend.position="top")
+# 
+# df_mock %>%
+#   dplyr::select(-Stage,-(SurfaceKl:Obs)) %>%
+#   dplyr::select(Crop, Date, Irrigation,Depth, Rep_1:Obs_av) %>%
+#   tidyr::gather("Rep","Obs",Rep_1:Obs_av) %>% # FIXME: check names to be used in raw data
+#   mutate(Rep = factor(Rep)) %>%
+#   filter(Rep != "Obs_av") %>% 
+#   ggplot(aes(x=Date, y=Obs)) +
+#   geom_point(aes(colour=factor(Rep)), alpha=0.5) +
+#   geom_smooth(colour="black", size=1.1) +
+#   geom_line(data=df_mock, aes(x=Date, y=CI95_down), linetype=2, colour="darkgrey") +
+#   geom_line(data=df_mock, aes(x=Date, y=CI95_up), linetype=2, colour="darkgrey") +
+#   facet_grid(Depth~Crop+Irrigation) + 
+# #  scale_x_date(labels = date_format("%b")) + scale_shape(solid = FALSE) + 
+#   ylab("Volumetric soil moisture (mm)") +
+#   theme(text = element_text(size=18)) +
+#     labs(colour="Experiental replicate") + theme(legend.position="top")
 ```
 
 ## Graph Predicted x Observed
@@ -220,7 +226,7 @@ df_mock %>%
 - linear regression for each soil depth shown in gray
 - 95% confidence interval also shown
 
-```{r XYgraph , fig.height=10,fig.width=12, echo=FALSE, include = FALSE}
+```{r XYgraph , fig.height=10,fig.width=12, echo=FALSE, include = TRUE}
 dataWork %>%
   ggplot(aes(x=Pred, y=Obs,colour=factor(Depth))) +
   stat_smooth(method = "lm", se = TRUE, 
@@ -403,7 +409,7 @@ dataWork <- dataWork[c("Crop", "Irrigation",
                        "index_crop_irrig",
                        "index_crop_stage_depth",
                        "index_crop_stage_irrig",
-                       "Pred", "Obs")]
+                       "Pred", "Obs","CI95_down","CI95_up")]
 
 # save it for the sensitivity analysis
 write.csv(dataWork, "C:\\GitHubRepos\\FodderBeetRUE_2016\\workedData.csv")
@@ -416,23 +422,22 @@ write.csv(dataWork, "C:\\GitHubRepos\\FodderBeetRUE_2016\\workedData.csv")
 - this stats has to be calculated separatelly and later merged with reported stats
 
 ```{r, warning = FALSE, echo = FALSE}
-# Add mock confidence limit of observed to enable calculation testing
-# FIXME: This will come at high level in raw data later - chunk to be deleted
+
 
 tempDF <- dataWork %>%
-  mutate(CI95_down = 0.95*Obs, CI95_up = 1.05*Obs) %>% # FIXME: Mock CI 
+ # mutate(CI95_down = 0.95*Obs, CI95_up = 1.05*Obs) %>% # FIXME: Test CI calc
   rowwise() %>%
-  mutate(Pred_gt_CId = ifelse(Pred>CI95_down,1,0)) %>% # FIXME: calculate this properly when data is available
-  mutate(Pred_lw_CIu = ifelse(Pred>CI95_down,1,0), Within_CI95 = Pred_gt_CId*Pred_lw_CIu) %>%
+  mutate(Pred_gt_CId = ifelse(Pred>CI95_down,1,0)) %>% 
+  mutate(Pred_lw_CIu = ifelse(Pred>CI95_down,1,0), 
+         Within_CI95 = Pred_gt_CId*Pred_lw_CIu) %>%
   dplyr::select(-Pred_gt_CId,-Pred_lw_CIu)
 
 ```
 
 - Graph shows distribution of % of points within the 95% CI of observed
 
-- Mock values of 95%CI until we get actual data from Hamish
 
-```{r, fig.height=10, fig.width=12, warning = FALSE, include = FALSE}
+```{r, fig.height=10, fig.width=12, warning = FALSE, include = TRUE}
 
 # This has to be done for stats batch "best" fit or stats calculation
 tempDF  %>%
@@ -496,11 +501,11 @@ summary(statDF_crop_stage_irrig)
 
 - Colours are the diffrenet crops lucerne (red) and ryegrass (blue)
 
-```{r CompareStatIndexes, fig.height=15,fig.width=12, echo=FALSE, warning=FALSE, }
+```{r CompareStatIndexes, fig.height=8,fig.width=12, echo=FALSE, warning=FALSE, }
 # with stats by Crop
 statDF_crop_stage_irrig %>%
 group_by(Crop) %>%
-dplyr::select(r2:pBias) %>%
+dplyr::select(Crop,r2:pBias) %>%
 ggpairs(aes(colour=Crop),labelHJust=1)
 ```
 
@@ -769,7 +774,7 @@ doStats()
 
 ```
 
-# print table of stats across all tretamenys
+# print table of stats across all tretaments
 
 ```{r, echo = FALSE}
 
@@ -885,7 +890,7 @@ rangeBestFit <- 0.025 # % of value around rRMSE and LC
 bound_bf <- temp_data_bf %>%
   filter(BestFit=="Best") %>%
   group_by(Crop, Stage) %>%
-  dplyr::select(lc, r_rmse) %>%
+  dplyr::select(Crop, Stage,lc, r_rmse) %>%
   mutate(r_rmse_best = r_rmse, lc_best = lc) %>%
   dplyr::select(-lc, -r_rmse) %>%
   mutate(r_rmse_bestFit_low = (1-rangeBestFit)*r_rmse_best,
