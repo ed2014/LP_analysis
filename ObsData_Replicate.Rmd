@@ -34,7 +34,14 @@ repWork <- repRaw %>%
   mutate(CI95_down = (Obs_av-3.182*(sd(c(B1,B2,B3,B4))/sqrt(4)))) %>% # FIXME: check with Esther how to
   mutate(CI95_up = (Obs_av+3.182*sd(c(B1,B2,B3,B4)/sqrt(4)))) 
 
+# save
+write.csv(repWork, "K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\worked_observed_data.csv",row.names=FALSE)
 
+```
+
+# Embelish and improve factor names
+
+```{r}
 repWork$Depth <- gsub("D", "", repWork$Depth)
 repWork$Depth <- factor(repWork$Depth, 
                          levels = c(7, 23, 30, 50, 70, 90, 110, 130, 150))
@@ -67,19 +74,18 @@ levels(repWork$Depth)
 summary(repWork)
 str(repWork)
 summary(repWork)
-
-
-
-
 ```
 
 
 ```{r, fig.height=15,fig.width=15, echo=FALSE}
-repWork %>%
+repVar <- repWork %>%
   dplyr::select(Crop, Date, Irrigation,Depth, B1:Obs_av) %>%
   tidyr::gather("Rep","Obs",B1:Obs_av) %>% # FIXME: check names to be used in raw data
   mutate(Rep = factor(Rep)) %>%
-  filter(Rep != "Obs_av") %>% 
+  filter(Rep != "Obs_av") 
+
+
+repVar %>% 
   ggplot(aes(x=Date, y=Obs)) +
   geom_point(aes(colour=factor(Rep)), alpha=0.5) +
   geom_point(data=repWork, aes(x=Date, y=Obs_av), shape=2, colour="black") +
@@ -92,9 +98,10 @@ repWork %>%
   geom_vline(xintercept = as.numeric(as.Date(ymd(estDate))), linetype=2) 
 ```
 
-# Save the baby
+# check negative values
 
 ```{r}
-write.csv(repWork, "K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\worked_observed_data.csv",row.names=FALSE)
+x<-repVar  %>%
+  filter(Obs < 0)
 ```
 
