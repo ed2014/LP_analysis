@@ -1,0 +1,101 @@
+---
+title: "Untitled"
+output: html_document
+---
+```{r}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(agricolae)
+library(knitr)
+```
+
+```{r}
+info <- read.table("C:\\GitHubRepos\\LP_analysis\\BiomassAnnualRawData.txt", header=TRUE)
+
+info <- info %>%
+  mutate(Rep = factor(Rep)) %>%
+  mutate(Irrigation = factor(Irrigation, levels=c("Hig", "Med", "Low", "Dry"))) %>%
+  mutate(Season = as.factor(paste0("Season ",Season))) %>%
+  mutate(Season = factor(Season))
+
+summary(info)
+```
+
+```{r}
+str(info)
+```
+
+```{r Check}
+
+info %>%
+  tidyr::gather("Variable", "Value", 5:6) %>%
+  group_by(Crop, Season, Irrigation, Variable) %>%
+  dplyr::select(-Rep) %>%
+  ggplot(aes(x=Irrigation, y=Value)) +
+  #geom_bar(stat="identity") + 
+  geom_boxplot(alpha=0.1) +
+  geom_jitter(width=0.1) +
+  facet_grid(Variable+Crop~Season, scales = "free") +
+  xlab("Irrigation frequency") +
+  ylab("Water use (mm/year)                      Crop yield (t/ha/year)") +
+  theme(text = element_text(size=20))
+```
+
+```{r}
+
+SumData <- info %>%
+  group_by(Crop, Irrigation, Rep) %>%
+  summarise(Yield = mean(Yield_tHa), WaterUse = mean(waterUse_mmYear), WUE=Yield*1000/WaterUse) 
+
+summary(SumData)
+  
+```
+
+## Do ANOVA
+
+```{r}
+
+crops <- unique(SumData$Crop)
+
+for (c in 1:length(crops)) {
+  
+df <- SumData %>% filter(Crop == crops[c])
+  
+anova <- aov(Yield ~ Irrigation+Rep, data = df )
+print("##################################")
+print(paste0("##### Crop: ",crops[c], "    ###########"))
+print("##################################")
+print(summary(anova))
+print(TukeyHSD(anova))
+
+a <- HSD.test(anova, "Irrigation")
+print(a)
+  
+}
+
+```
+
+```{r}
+
+str(SumData)
+
+tableSum <- SumData %>%
+  ungroup() %>% # need it!
+#  tidyr::gather("Variable", "Value", Yield:WaterUse) %>%
+  group_by(Crop, Irrigation) %>%
+  dplyr::select(Crop, Irrigation, Yield) %>%
+ # mutate(Variable = factor(Variable)) %>%
+ # group_by(Crop,Variable, Rep, Irrigation) %>%
+  summarise(MeanValue = mean(Yield), SdValue = sd(Yield))
+
+
+```
+
+## Show as Table
+
+```{r}
+tableSum %>%
+  kable(format = "markdown", digits = 2)
+```
+
