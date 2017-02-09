@@ -22,7 +22,7 @@ options("scipen"=100, "digits"=4) # prints not in scientific notation
 Read
 
 ```{r}
-info <- read.csv("C:\\GitHubRepos\\FodderBeetRUE_2016\\workedData.csv", header=TRUE)
+info <- read.csv("C:\\GitHubRepos\\LP_analysis\\workedData.csv", header=TRUE)
 
 summary(info)
 ```
@@ -39,7 +39,7 @@ df_av <- info %>%
   mutate(simIndex = paste0(Crop,Stage,Irrigation)) %>%
   mutate(simIndex = as.factor(simIndex)) %>%
   group_by(Crop,Stage,Irrigation,simIndex,SurfaceKl,KLReduction,RootFrontVelocity) %>%
-  dplyr::select(Pred) %>%
+  dplyr::select(Crop,Stage,Irrigation,simIndex,SurfaceKl,KLReduction,RootFrontVelocity,Pred) %>%
   summarise_each(funs(mean))
 
 simIndexUnique <- unique(df_av$simIndex)
@@ -63,7 +63,7 @@ for(i in 1:length(simIndexUnique)) {
   
   # get vector with sums of squares
   anova_SS <- anovaTable[[1]]$'Sum Sq'
- #  anova_SS <- anovaTable[[1]]$'Mean Sq'# esther suggested SS to be used - test only
+#   anova_SS <- anovaTable[[1]]$'Mean Sq'# esther suggested SS to be used - test only
   
   # internal df to hold ss values
   df_ss <- NULL
@@ -83,16 +83,15 @@ for(i in 1:length(simIndexUnique)) {
   
   # Add SS of interections as a new vector element that adds to 100%
 sumInt <- sum(df_ss$SS_p[(noFactors+1):length(namesAnTab)]) # Calculate sums total SS due to interactions (i.e. sums every SS that is not main factor)
-si_Out1 <- c(df_ss$SS_p[1:noFactors], sumInt) # vector with si values in %
-
+si_Out_p <- c(df_ss$SS_p[1:noFactors], sumInt) # vector with si values in %
 # test anova
-if (sum(si_Out1) < 99.9 | sum(df_ss$SS_p) > 100.1) {
+if (sum(si_Out_p) < 99.9 | sum(df_ss$SS_p) > 100.1) {
   print("Check your ANOVA")
   print(paste0("Sum of all % of Si: ", sum(df_ss$SS_p))) # check it
   }
 
 # Create the Si dataframe and graph it
-df_si <- data.frame(si_Out1)
+df_si <- data.frame(si_Out_p)
 rownames(df_si) <- gsub(" ","",c(mainFactNames[1:noFactors], "Interactions"))
 
 df_si$FactorName <- rownames(df_si)
@@ -103,10 +102,10 @@ colnames(df_si) <- c("PercTotal_SS", "FactorName")
   df_si <- data.frame(thisCrop = thisDf$Crop[1],
                    thisStage = thisDf$Stage[1],
                    thisIrrig = thisDf$Irrigation[1],
-                   si_Out1[1], 
-                   si_Out1[2], 
-                   si_Out1[3],
-                   si_Out1[4]
+                   si_Out_p[1], 
+                   si_Out_p[2], 
+                   si_Out_p[3],
+                   si_Out_p[4]
                    )
  
  noLabels <- 3 # FIXME: do it prittier later
@@ -211,10 +210,10 @@ for(i in 1:length(simIndexUnique)) {
   
   # Add SS of interections as a new vector element that adds to 100%
 sumInt <- sum(df_ss$SS_p[(noFactors+1):length(namesAnTab)]) # Calculate sums total SS due to interactions (i.e. sums every SS that is not main factor)
-si_Out1 <- c(df_ss$SS_p[1:noFactors], sumInt) # vector with si values in %
+si_Out_p <- c(df_ss$SS_p[1:noFactors], sumInt) # vector with si values in %
 
 # Create the Si dataframe and graph it
-df_si <- data.frame(si_Out1)
+df_si <- data.frame(si_Out_p)
 rownames(df_si) <- gsub(" ","",c(mainFactNames[1:noFactors], "Interactions"))
 
 df_si$FactorName <- rownames(df_si)
@@ -225,10 +224,10 @@ colnames(df_si) <- c("PercTotal_SS", "FactorName")
   df_si <- data.frame(thisCrop = thisDf$Crop[1],
                    thisStage = thisDf$Stage[1],
                    thisIrrig = thisDf$Irrigation[1],
-                   si_Out1[1], 
-                   si_Out1[2], 
-                   si_Out1[3],
-                   si_Out1[4]
+                   si_Out_p[1], 
+                   si_Out_p[2], 
+                   si_Out_p[3],
+                   si_Out_p[4]
                    )
  
  noLabels <- 3 # FIXME: do it prittier later
@@ -261,20 +260,25 @@ summary(si_df_final)
 # graph
 si_df_final$thisIrrig <- factor(si_df_final$thisIrrig, levels=c("No Irrigation",
                                  "Low Frequency",
-                                 "Medium Frequency", 
+                                 "Medium Frequency",
                                  "High Frequency"))
 
 si_df_final %>%
   tidyr::gather("Si_Item","Si_Value", SurfaceKl:Interactions) %>%
-  mutate(Si_Item = factor(Si_Item,
-  levels = c("SurfaceKl","KLReduction","RootFrontVelocity","Interactions"),
-  labels = c(expression("kl"["s"]),expression(lambda["kl"]),"RFV", "Interactions") # FIXME: synthax to use expressions here?
+  mutate(Si_Item = factor(Si_Item, levels = c("SurfaceKl",
+                                 "KLReduction",
+                                 "RootFrontVelocity", 
+                                 "Interactions"),
+                          labels = c("Surface kl",
+                                 "Rate of kl decay",
+                                 "RFV", 
+                                 "Interactions")
                           )) %>%
   ggplot(aes(x=rev(thisIrrig), y=Si_Value, fill=factor(Si_Item))) +
   geom_bar(stat="identity") +
   facet_grid(thisCrop~thisStage, scales = "free") +
   ylab("SS") +
-  xlab(" Water supply treatment") +
+  xlab("Water supply treatment") +
   theme(axis.text.x = element_text(angle = 45, hjust=1)) + theme(legend.title=element_blank()) +
   theme(text = element_text(size=16))
   

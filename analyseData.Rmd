@@ -46,8 +46,12 @@ options("scipen"=100, "digits"=4) # prints not in scientific notation
 # dataRaw <- read.csv("K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\ObsPre.csv", 
 #                     header = TRUE)
 
-dataRaw <- read.csv("K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\ObsPreSD15.csv", 
-                    header = TRUE)
+obsPredFile <- "ObsPreSD15.csv"
+#obsPredFile <- "ObsPreSD30.csv" # We assumed this is too severe for crops such as ryegrass
+
+obsPredFolder <- "K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\"
+
+dataRaw <- read.csv(paste0(obsPredFolder,obsPredFile),header = TRUE)
 #head(dataRaw)
 summary(dataRaw)
 ```
@@ -193,10 +197,9 @@ dataWork %>%
 
 ```
 
-## Plot observations and uncertanty
+## Check averages - calculated and raw from Hamish's run
 ```{r, include=FALSE, echo=FALSE}
-# check if moch average is close to real average
-# plot(df_mock$Obs_av,df_mock$Obs)
+plot(dataWork$Obs_av,dataWork$Obs)
 ```
 
 ```{r, fig.height=15,fig.width=15, echo=FALSE}
@@ -313,6 +316,7 @@ doStats <-  function (x) {
     library(dplyr)
     x %>% dplyr::summarise(
     n = n(),
+    meanObs = mean(Obs),
     r2 = gauchStats(Pred,Obs)[5],
     rmse = rmse(Pred,Obs),
     r_rmse = rmse(Pred,Obs)/mean(Obs)*100, # big precision to enable cretrial of selection
@@ -412,7 +416,7 @@ dataWork <- dataWork[c("Crop", "Irrigation",
                        "Pred", "Obs","CI95_down","CI95_up")]
 
 # save it for the sensitivity analysis
-write.csv(dataWork, "C:\\GitHubRepos\\FodderBeetRUE_2016\\workedData.csv")
+write.csv(dataWork, "C:\\GitHubRepos\\LP_analysis\\workedData.csv")
 ```
 
 ## Calculate statistics
@@ -422,10 +426,7 @@ write.csv(dataWork, "C:\\GitHubRepos\\FodderBeetRUE_2016\\workedData.csv")
 - this stats has to be calculated separatelly and later merged with reported stats
 
 ```{r, warning = FALSE, echo = FALSE}
-
-
-tempDF <- dataWork %>%
- # mutate(CI95_down = 0.95*Obs, CI95_up = 1.05*Obs) %>% # FIXME: Test CI calc
+within95CI_df <- dataWork %>%
   rowwise() %>%
   mutate(Pred_gt_CId = ifelse(Pred>CI95_down,1,0)) %>% 
   mutate(Pred_lw_CIu = ifelse(Pred>CI95_down,1,0), 
@@ -437,10 +438,10 @@ tempDF <- dataWork %>%
 - Graph shows distribution of % of points within the 95% CI of observed
 
 
-```{r, fig.height=10, fig.width=12, warning = FALSE, include = TRUE}
+```{r, fig.height=10, fig.width=12, warning = FALSE, include = FALSE}
 
 # This has to be done for stats batch "best" fit or stats calculation
-tempDF  %>%
+within95CI_df  %>%
 group_by(Crop, Stage,Irrigation,RootFrontVelocity,KLReduction,SurfaceKl, index_crop_stage_irrig) %>%
 summarise(Perc95CI = sum(Within_CI95)/n()*100, ObsNo = n()) %>%
   ggplot(aes(x=factor(SurfaceKl) , y=Perc95CI)) +
@@ -657,7 +658,7 @@ summary(statDF_crop_irrig)
 
 # Select best parameters for dryland conditions (fixed RFV)
 
-```{r}
+```{r BestFit}
 
 percSel <- 0.25 # percentile of simulations to be selected (Attention to index criteria)
 
@@ -669,6 +670,27 @@ bestFit_dry <- statDF_crop_irrig  %>%
  filter(Irrigation == "No Irrigation") # keeps only the dry treats
 
 summary(bestFit_dry)
+
+
+# Alternative FIXME: Under test
+
+# statDF_crop <- dataWork  %>%
+# group_by(Crop, # labels
+#          index_crop, # used later
+#          index_crop_stage_irrig, # corresponding index
+#          SurfaceKl, KLReduction, RootFrontVelocity) %>% # index
+# doStats() 
+# 
+# summary(statDF_crop)
+# 
+# 
+# bestFit_dry <- statDF_crop  %>%
+#  group_by(Crop) %>%
+#  filter(r_rmse < quantile(r_rmse, (percSel))) %>%
+#  filter(lc == max(lc)) %>%   # get sm
+#  filter(row_number() == min(row_number()))
+# 
+# summary(bestFit_dry)
 
 ```
 
@@ -761,7 +783,7 @@ group_by(Crop, Stage, Irrigation, # labels
          SurfaceKl, KLReduction, RootFrontVelocity) %>% # index
 doStats() 
 
-#summary(statDF_simsWithBestFitForDry )
+summary(statDF_simsWithBestFitForDry)
 
 # statDF_simsWithBestFitForDry  %>%
 #   tidyr::gather("StatName", "StatValue",rsr:pBias) %>%
@@ -769,8 +791,6 @@ doStats()
 #   ggplot(aes(x=Irrigation, y=StatValue))+
 #   geom_bar(stat='identity') +
 #   facet_wrap(Crop+Stage~StatName, scales = "free",ncol = 4)
-
-
 
 ```
 
@@ -794,6 +814,41 @@ tableOfStats %>%
 
 ```
 
+# Get additional stats for sims % within 95% CI
+
+```{r}
+
+# for the best fit dry (FIXME: confude here - how to get stats for best fit across both est/reg)
+# tableCI95 <- within95CI_df %>%
+#   ungroup() %>%
+#   dplyr::select(Crop:index_crop_stage,Within_CI95) %>%
+#   filter(index_crop %in% unique(bestFit_dry$index_crop)) %>% # select best param sims only
+#   group_by(Crop, Stage,RootFrontVelocity,KLReduction,SurfaceKl, index_crop_stage) %>% # agregate by crop
+#   summarise(Perc95CI = sum(Within_CI95)/n()*100, ObsNo = n()) %>% # counts and % sims within the 95%CI
+#   filter(Irrigation == "No Irrigation")
+# 
+# tableCI95 %>%
+#   dplyr::select(-(RootFrontVelocity:index_crop)) %>%
+#   kable(digits=2)
+
+
+# For individual crop/stage/irrig
+tableCI95 <- within95CI_df %>%
+  ungroup() %>%
+  dplyr::select(Crop:index_crop_stage_irrig,Within_CI95) %>%
+  filter(index_crop %in% unique(bestFit_dry$index_crop)) %>% # select best param sims only
+  group_by(Crop, Stage,Irrigation,RootFrontVelocity,KLReduction,SurfaceKl, index_crop) %>% # agregate by crop
+  summarise(Perc95CI = sum(Within_CI95)/n()*100, ObsNo = n()) # counts and % sims within the 95%CI
+
+tableCI95 %>%
+  dplyr::select(-(RootFrontVelocity:index_crop)) %>%
+  kable(digits=2)
+
+write.csv(tableCI95,"C:\\GitHubRepos\\LP_analysis\\tableCI95.csv")
+
+```
+
+
 ## How are statistics across different "soil depths" 
 
 ```{r }
@@ -805,13 +860,14 @@ gauch_depth <- simsWithBestFitForDry  %>%
   dplyr::group_by(Crop, Stage, Irrigation, Depth, Depth, SurfaceKl, KLReduction, RootFrontVelocity) %>%
   dplyr::summarise(
     n = n(),
+    meanObs = mean(Obs),
     r2 = gauchStats(Pred,Obs)[5],
     rmse = round(rmse(Pred,Obs),3),
     r_rmse = round(rmse(Pred,Obs)/mean(Obs)*100,3),
     nse = round(NSE(Pred,Obs),1),
     sb = gauchStats(Pred,Obs)[1],
-  nu = gauchStats(Pred,Obs)[2],
-  lc = gauchStats(Pred,Obs)[3]) 
+    nu = gauchStats(Pred,Obs)[2],
+    lc = gauchStats(Pred,Obs)[3]) 
 
 summary(gauch_depth)
 ```
@@ -834,7 +890,10 @@ gauch_depth %>%
 
 ```{r, fig.width=15, fig.height=15, warning=FALSE, echo = FALSE }
 df <- gauch_depth %>%
-  mutate(mse = rmse^2, sb=sb*mse, nu=nu*mse, lc=lc*mse) %>%
+  mutate(mse = rmse^2, sb=(sb/100*mse)/meanObs*100,nu=(nu/100*mse)/meanObs*100,lc=(lc/100*mse)/meanObs*100) %>% 
+ # FIXME: What's the best stats to use here?
+ #  mutate(mse = rmse^2, sb=sb/100*mse, nu=nu/100*mse, lc=lc/100*mse) %>%
+ #  mutate(mse = r_rmse, sb=sb/100*mse, nu=nu/100*mse, lc=lc/100*mse) %>%
  # dplyr::select(-n, -r2,-rmse,-r_rmse,-nse) %>%
   dplyr::select(-n, -r2,-r_rmse,-nse, -rmse) %>%
   tidyr::gather("StatsType","StatsValue", sb:mse) %>%
@@ -850,7 +909,7 @@ df <- gauch_depth %>%
   geom_bar(stat='identity') +
   facet_grid(Irrigation~Crop+Stage,scales = "free") +
   coord_flip() + 
-  labs(x = "Soil depth (cm)", y = "Mean square error (MSE)") +
+  labs(x = "Soil depth (cm)", y = "Relative mean square error (% observed mean)") +
 #  theme(text = element_text(size=rel(4))) +
 #  theme(legend.text=element_text(size=16)) + 
     theme(legend.title=element_blank()) +
