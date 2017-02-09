@@ -277,7 +277,7 @@ si_df_final %>%
   ggplot(aes(x=rev(thisIrrig), y=Si_Value, fill=factor(Si_Item))) +
   geom_bar(stat="identity") +
   facet_grid(thisCrop~thisStage, scales = "free") +
-  ylab("SS") +
+  ylab("Sums of Squares") +
   xlab("Water supply treatment") +
   theme(axis.text.x = element_text(angle = 45, hjust=1)) + theme(legend.title=element_blank()) +
   theme(text = element_text(size=16))

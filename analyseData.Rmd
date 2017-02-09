@@ -623,7 +623,6 @@ Select best fit for:
 
 (i) Dryland crops (rationale is that "maximum" kl is expressed only under dry conditions)
 
-
 (ii) We select "best" Root Front Velocity (RFV) from the "establishment" stage only (rationale is that simulations are only sensitive to the parameters during this stage ... when roots actually grow)
 
 # Repeat the stats calculation for crop by irrigation (i.e. across stages)
@@ -804,7 +803,7 @@ tableOfStats <- statDF_simsWithBestFitForDry  %>%
 
 tableOfStats %>%
   t() %>%
-  write.csv("TableStats.csv")
+  write.csv(paste0(obsPredFolder,"TableStats.csv"))
 
 tableOfStats %>%
 #  t() %>%
@@ -890,7 +889,14 @@ gauch_depth %>%
 
 ```{r, fig.width=15, fig.height=15, warning=FALSE, echo = FALSE }
 df <- gauch_depth %>%
-  mutate(mse = rmse^2, sb=(sb/100*mse)/meanObs*100,nu=(nu/100*mse)/meanObs*100,lc=(lc/100*mse)/meanObs*100) %>% 
+  # mutate(mse = rmse^2,
+         # sb=((sb/100*mse)/meanObs)*100,
+         # nu=((nu/100*mse)/meanObs)*100,
+         # lc=((lc/100*mse)/meanObs)*100) %>%
+    mutate(mse = rmse^2,
+         sb=sb*mse,
+         nu=nu*mse,
+         lc=lc*mse) %>%
  # FIXME: What's the best stats to use here?
  #  mutate(mse = rmse^2, sb=sb/100*mse, nu=nu/100*mse, lc=lc/100*mse) %>%
  #  mutate(mse = r_rmse, sb=sb/100*mse, nu=nu/100*mse, lc=lc/100*mse) %>%
@@ -909,7 +915,7 @@ df <- gauch_depth %>%
   geom_bar(stat='identity') +
   facet_grid(Irrigation~Crop+Stage,scales = "free") +
   coord_flip() + 
-  labs(x = "Soil depth (cm)", y = "Relative mean square error (% observed mean)") +
+  labs(x = "Soil depth (cm)", y = "Mean square error") +
 #  theme(text = element_text(size=rel(4))) +
 #  theme(legend.text=element_text(size=16)) + 
     theme(legend.title=element_blank()) +
@@ -996,16 +1002,20 @@ data_bf %>%
   labs(shape="RFV", 
        colour=expression("kl"["s"]), 
        size=expression(lambda["kl"])) +
-  theme(text = element_text(size=16))+
+  theme(text = element_text(size=20))+
   theme(legend.position="top")  +
   facet_wrap(Crop+Stage~Irrigation,ncol=4) + # FIXME: Order matters - facet_grid might do the job?
-  geom_vline(data=temp_data_bf,aes(xintercept=temp_data_bf$lc), linetype=2, colour="darkgrey") + 
-  geom_hline(data=temp_data_bf, aes(yintercept=temp_data_bf$r_rmse), linetype=2, colour="darkgrey") 
+  geom_vline(data=temp_data_bf,aes(xintercept=temp_data_bf$lc), linetype=2, colour="black") + 
+  geom_hline(data=temp_data_bf, aes(yintercept=temp_data_bf$r_rmse), linetype=2, colour="black") 
   # now add elipse around "good-enough" simulations - FIXME 
  # + stat_ellipse(type = "norm", aes(linetype = range_idx == 1)) + 
  #  scale_linetype_manual(values=c("blank", "dotted")) 
 
 ```
 
+# give ranges
 
+```{r}
+summary(data_bf)
+```
 
