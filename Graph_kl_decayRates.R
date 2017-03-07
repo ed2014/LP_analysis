@@ -9,12 +9,13 @@ info <- read.table("C:\\GitHubRepos\\LP_analysis\\kl_decayRates.txt", header=TRU
 head(info,30)
 
 info %>%
-  tidyr::gather("rate", "kl_Multiplier",2:8) %>%
- # filter(rate != "rate_.0.0001") %>%
-  ggplot(aes(x= kl_Multiplier, y= Depth*-0.1 , colour=factor(rate) )) +
+  tidyr::gather("rate", "kl_Multiplier",X0.01:X0.0005) %>%
+  mutate(rate=factor(gsub('X','-',rate))) %>%
+  ggplot(aes(x= SoilDepth, y=kl_Multiplier, colour=factor(rate) )) +
   geom_line() +
   geom_point() +
-  xlab("Surface kl multiplier (fractional)") +
-  ylab("Depth in soil profile (mm)")+
+  ylab("Surface kl multiplier (fractional)") +
+  xlab("Depth in soil profile (mm)")+
   theme(text = element_text(size=16))+ 
-  theme(legend.title=element_blank())
+ # theme(legend.title=element_blank())+
+  labs(colour=expression(lambda["kl"]))
