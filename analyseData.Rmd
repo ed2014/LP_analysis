@@ -123,6 +123,13 @@ levels(dataWork$RootFrontVelocity)
 
 ```
 
+# reduce parameter space to 5 levels
+
+```{r}
+# dataWork <- dataWork %>%
+#   filter(RootFrontVelocity != "5")
+```
+
 
 ```{r}
 # Check
@@ -721,13 +728,13 @@ simsWithBestFitForDry  <- dataWork %>%
 # finds the closest point to the date of establihment
 estLoc <- which.min(abs(as.Date(simsWithBestFitForDry$Date) - as.Date(estDate)))
 
-summary(simsWithBestFitForDry )
+summary(simsWithBestFitForDry)
 
 ```
 
 # Graph lucerne
 
-```{r, fig.width=12, fig.height=12, echo = FALSE}
+```{r, fig.width=12, fig.height=15, echo = FALSE}
 
 # Graph lucerne
 simsWithBestFitForDry  %>%
@@ -740,10 +747,14 @@ simsWithBestFitForDry  %>%
 #  geom_point(aes(x=Date, y=Pred),colour="black", size=0.2) +
  # facet_grid(Depth~Irrigation, scales = "free") + 
   facet_grid(Depth~Crop+Irrigation) + 
-  scale_x_date(labels = date_format("%b")) + scale_shape(solid = FALSE) + 
-  geom_vline(xintercept = as.numeric(simsWithBestFitForDry $Date[estLoc]),linetype = 2, colour="darkgrey") +
-  ylab("Volumetric soil moisture (mm)") +
-  theme(text = element_text(size=13))
+#  scale_x_date(labels = date_format("%b")) + 
+  scale_shape(solid = FALSE) + 
+  geom_vline(xintercept = as.numeric(simsWithBestFitForDry$Date[estLoc]),linetype = 2, colour="black") +
+ # ylab("Volumetric soil moisture (mm)") +
+   labs(y=expression("Volumetric soil moisture "~(cm^{3}~cm^{-3})))+
+  theme(text = element_text(size=15))  + 
+  theme_bw() + 
+  theme(strip.background = element_blank())
 ```
 
 ## XY graph of above best fit dataset 
@@ -793,8 +804,7 @@ summary(statDF_simsWithBestFitForDry)
 
 ```
 
-# print table of stats across all tretaments
-
+# print table of stats across all treatments
 ```{r, echo = FALSE}
 
 tableOfStats <- statDF_simsWithBestFitForDry  %>%
@@ -803,7 +813,7 @@ tableOfStats <- statDF_simsWithBestFitForDry  %>%
 
 tableOfStats %>%
   t() %>%
-  write.csv(paste0(obsPredFolder,"TableStats.csv"))
+  write.csv(paste0("C:\\GitHubRepos\\LP_analysis\\","TableStats_eachTreat.csv"))
 
 tableOfStats %>%
 #  t() %>%
@@ -813,24 +823,29 @@ tableOfStats %>%
 
 ```
 
-# Get additional stats for sims % within 95% CI
+## Get additional stats for sims % within 95% CI
 
+# For best-fit
+```{r, warning=FALSE}
+
+# Check if this logic is correct
+tableCI95_bestFit <- within95CI_df %>%
+ungroup() %>%
+  filter(Irrigation == "No Irrigation") %>% # Pooled data for dryland
+  dplyr::select(Crop:index_crop_stage_irrig, Within_CI95) %>%
+  filter(index_crop %in% unique(bestFit_dry$index_crop)) %>% # select best param sims only
+  group_by(Crop,RootFrontVelocity,KLReduction,SurfaceKl, index_crop) %>% # agregate by crop only
+  summarise(Perc95CI = sum(Within_CI95)/n()*100, ObsNo = n()) # counts and % sims within the 95%CI
+
+tableCI95_bestFit %>%
+  dplyr::select(-(RootFrontVelocity:index_crop)) %>%
+  kable(digits=2)
+
+```
+
+
+# For individual treats
 ```{r}
-
-# for the best fit dry (FIXME: confude here - how to get stats for best fit across both est/reg)
-# tableCI95 <- within95CI_df %>%
-#   ungroup() %>%
-#   dplyr::select(Crop:index_crop_stage,Within_CI95) %>%
-#   filter(index_crop %in% unique(bestFit_dry$index_crop)) %>% # select best param sims only
-#   group_by(Crop, Stage,RootFrontVelocity,KLReduction,SurfaceKl, index_crop_stage) %>% # agregate by crop
-#   summarise(Perc95CI = sum(Within_CI95)/n()*100, ObsNo = n()) %>% # counts and % sims within the 95%CI
-#   filter(Irrigation == "No Irrigation")
-# 
-# tableCI95 %>%
-#   dplyr::select(-(RootFrontVelocity:index_crop)) %>%
-#   kable(digits=2)
-
-
 # For individual crop/stage/irrig
 tableCI95 <- within95CI_df %>%
   ungroup() %>%
@@ -889,14 +904,14 @@ gauch_depth %>%
 
 ```{r, fig.width=15, fig.height=15, warning=FALSE, echo = FALSE }
 df <- gauch_depth %>%
-  # mutate(mse = rmse^2,
-         # sb=((sb/100*mse)/meanObs)*100,
-         # nu=((nu/100*mse)/meanObs)*100,
-         # lc=((lc/100*mse)/meanObs)*100) %>%
-    mutate(mse = rmse^2,
-         sb=sb*mse,
-         nu=nu*mse,
-         lc=lc*mse) %>%
+  mutate(mse = rmse^2,
+  sb=((sb/100*mse)/meanObs)*100,
+  nu=((nu/100*mse)/meanObs)*100,
+  lc=((lc/100*mse)/meanObs)*100) %>%
+    # mutate(mse = rmse^2,
+    #      sb=sb*mse,
+    #      nu=nu*mse,
+    #      lc=lc*mse) %>%
  # FIXME: What's the best stats to use here?
  #  mutate(mse = rmse^2, sb=sb/100*mse, nu=nu/100*mse, lc=lc/100*mse) %>%
  #  mutate(mse = r_rmse, sb=sb/100*mse, nu=nu/100*mse, lc=lc/100*mse) %>%
@@ -915,7 +930,7 @@ df <- gauch_depth %>%
   geom_bar(stat='identity') +
   facet_grid(Irrigation~Crop+Stage,scales = "free") +
   coord_flip() + 
-  labs(x = "Soil depth (cm)", y = "Mean square error") +
+  labs(x = "Soil depth (cm)", y = "Mean square error (% of observed mean)") +
 #  theme(text = element_text(size=rel(4))) +
 #  theme(legend.text=element_text(size=16)) + 
     theme(legend.title=element_blank()) +
@@ -1000,7 +1015,7 @@ data_bf %>%
   xlab("Lack of correlation (LC, % MSE) ") + ylab(" Relative RMSE (% observed mean)") +
   # labs(shape="Root Front Velocity (RFV)", colour="Surface kl (kls)", size="kl Reduction (klr)")+
   labs(shape="RFV", 
-       colour=expression("kl"["s"]), 
+       colour=expression("kl"["0"]), 
        size=expression(lambda["kl"])) +
   theme(text = element_text(size=20))+
   theme(legend.position="top")  +

@@ -77,12 +77,12 @@ summary(repWork)
 ```
 
 
-```{r, fig.height=15,fig.width=15, echo=FALSE}
+```{r, fig.height=20,fig.width=15, echo=FALSE}
 repVar <- repWork %>%
   dplyr::select(Crop, Date, Irrigation,Depth, B1:Obs_av) %>%
   tidyr::gather("Rep","Obs",B1:Obs_av) %>% # FIXME: check names to be used in raw data
-  mutate(Rep = factor(Rep)) %>%
-  filter(Rep != "Obs_av") 
+  mutate(Rep = factor(Rep, labels=c("Block 1", "Block 2", "Block 3", "Block 4", "Average"))) %>%
+  filter(Rep != "Average") 
 
 
 repVar %>% 
@@ -90,10 +90,11 @@ repVar %>%
   geom_point(aes(colour=factor(Rep)), alpha=0.5) +
   geom_point(data=repWork, aes(x=Date, y=Obs_av), shape=2, colour="black") +
   geom_line(data=repWork, aes(x=Date, y=CI95_down), linetype=22, colour="darkgrey") +
-  geom_line(data=repWork, aes(x=Date, y=CI95_up), linetype=2, colour="darkgrey") +
+  geom_line(data=repWork, aes(x=Date, y=CI95_up), linetype=22, colour="darkgrey") +
   facet_grid(Depth~Crop+Irrigation) + 
-  ylab("Volumetric soil moisture (mm)") +
-  theme(text = element_text(size=18)) +
+ # ylab("Volumetric soil moisture (mm)") +
+  labs(y=expression("Volumetric soil moisture "~(cm^{3}~cm^{-3})))+
+  theme(text = element_text(size=15)) +
     labs(colour="Experiental replicate") + theme(legend.position="top")+
   geom_vline(xintercept = as.numeric(as.Date(ymd(estDate))), linetype=2) 
 ```

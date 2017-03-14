@@ -91,7 +91,7 @@ summary(cover_int_av)
 
 # graph
 
-```{r}
+```{r, warning=FALSE}
 
 # graph
 cover_meas_av %>%
@@ -99,7 +99,7 @@ cover_meas_av %>%
   geom_point() +
   scale_shape(solid = FALSE) +
   facet_grid(Crop~.) +
-  ylab("Canopy cover (0-1)") +
+  ylab("Canopy cover (fractional)") +
   labs(colour="Water supply\n treatment") +
   geom_errorbar(aes(ymin=mean-sd/2,
                     ymax=mean+sd/2), width = 2) +

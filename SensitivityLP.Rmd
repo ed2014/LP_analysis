@@ -79,7 +79,7 @@ for(i in 1:length(simIndexUnique)) {
  
  # Creates a column with "normalised" percent of total variation (SS) 
   df_ss$SS_p <- round((df_ss$SS/sum(df_ss$SS))*100,3)
-  # df_ss$SS_p <- round((df_ss$MS/sum(df_ss$MS))*100,3) # esther suggested SS to be used - test only
+ #  df_ss$SS_p <- round((df_ss$MS/sum(df_ss$MS))*100,3) # esther reccomends SS to be used - test only
   
   # Add SS of interections as a new vector element that adds to 100%
 sumInt <- sum(df_ss$SS_p[(noFactors+1):length(namesAnTab)]) # Calculate sums total SS due to interactions (i.e. sums every SS that is not main factor)

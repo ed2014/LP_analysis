@@ -43,10 +43,6 @@ metFile$Month <- as.numeric(month(metFile$Date))
 summary(metFile)
 ```
 
-```{r}
-head(metFile)
-```
-
 # Graph historical averages
 
 > Daily temperaure and radiation
@@ -57,67 +53,127 @@ head(metFile)
 
 ```{r GraphMet, echo = FALSE, fig.width=12, fig.height=10}
 
-baseDate <- ymd("2000-01-01 UTC")
+baseDate <- ymd("2011-01-15 UTC")
 
 fontSize <- 15
 
-
-# historical data
-
-monthHist <- metFile %>%
+# historical data df --------------------------------
+weather_hist <- metFile %>%
   filter(year %in% 1960:2010) %>%
   group_by(Month) %>%
-  summarise_each(funs(mean, sd)) 
+  summarise_each(funs(mean, sd)) %>%
+  as.data.frame()
+
+# place holder for 4 similar sets of annual historical averages
+df_exp_temp <- weather_hist[rep(row.names(weather_hist), 4), 1:ncol(weather_hist)]
+df_exp_temp$Month <- c(1:nrow(df_exp_temp)) # number the months sequentially
+
+# create mid-point "mock dates" for trial period
+weather_hist.expanded <- df_exp_temp %>%
+  mutate(BaseDate = ymd(baseDate)) %>%
+  mutate(Date =  BaseDate %m+% months(Month-1)) %>% # creates dates starting from base and adding the number of months 
+  dplyr::select(-BaseDate,-year_mean)
+
+summary(weather_hist.expanded)
+
+```
+# test
+```{r}
+weather_hist.expanded %>%
+  ggplot(aes(x=Date, y=maxt_mean)) +
+  geom_line()
+```
+
+# do a daily historical average
+```{r}
+weather_day_avg <- metFile %>%
+  filter(year %in% 1960:2010) %>%
+#  mutate(DOY = yday(Date)) %>% # days of year
+  group_by(day) %>%
+  dplyr::select(day:vp) %>%
+  summarise_each(funs(mean)) %>%
+#  mutate(Day = as.integer(day_mean))%>%
+  as.data.frame()
+
+summary(weather_day_avg)
+```
+
+```{r}
+
+# FIXME: NOT working yet 
+
+# place holder for multiplied historical averages
+df_exp_temp <- weather_day_avg[rep(row.names(weather_day_avg), 4), 1:ncol(weather_day_avg)]
+df_exp_temp$Month_mean <- c(1:nrow(df_exp_temp)) 
+
+# create mid-point "mock dates" for trial period
+weather_day.expanded <- df_exp_temp %>%
+  mutate(BaseDate = ymd(baseDate)) %>%
+  mutate(Date =  BaseDate %m+% months(Month_mean-1)) %>%
+  dplyr::select(-BaseDate,-year_mean)
+
+summary(weather_day.expanded)
+```
+
+
+
+# plot for period of trials
+```{r}
+weather_trial <- metFile %>%
+  filter(year %in% 2011:2014) %>%
+  as.data.frame()
+
+summary(weather_trial)
+```
+
+
+
+```{r,fig.width=12, fig.height=8, warning=FALSE}
+
 
 
 # maxt
-g1 <- metFile %>%
-  filter(year %in% 2011:2014) %>%
-#  mutate(Month = format(as.Date(ymd(baseDate+day)),"%b")) %>%
-  group_by(year,Month) %>%
-  summarise_each(funs(mean)) %>%
+g1 <- weather_trial %>%
   ggplot(aes(x=Date, y=maxt))  +
-  geom_line(colour= "darkblue") +
-  stat_smooth(data=monthHist, aes(x=Month, y=maxt_mean), level = 0.9, size = 1, colour="white", alpha=0.2) + 
-  theme_bw() +
- xlab("Day of the year (1-365)") + 
+  geom_point(colour= "darkblue", alpha=0.3) +
+  geom_line(data=weather_hist.expanded, 
+            aes(x=Date, y=maxt_mean), colour="black") +
+ # theme_bw() +
+  xlab("Date") + 
   ylab("Daily maximum temperature (oC)") +
   ylab(expression("Daily maximum temperature ( "*degree*C*")")) +
   theme(text = element_text(size=fontSize)) 
 
 #mint
-g2 <- metFile %>%
-  filter(year %in% 1960:2015) %>%
-  group_by(day) %>%
- # summarise_each(funs(mean)) %>%
-  ggplot(aes(x=day, y=mint))  +
-  geom_point(colour= "darkblue", alpha=0.2) +
-  stat_smooth(level = 0.9, size = 1, colour="white") + 
-  theme_bw() +
- xlab("Day of the year (1-365)") + 
- # ylab("Daily minimum temperature (oC)") +
+g2 <- weather_trial %>%
+  ggplot(aes(x=Date, y=mint))  +
+  geom_point(colour= "darkblue", alpha=0.3) +
+  geom_line(data=weather_hist.expanded, 
+            aes(x=Date, y=mint_mean), colour="black") +
+ # theme_bw() +
+  xlab("Date") + 
+  ylab("Daily minimum temperature (oC)") +
   ylab(expression("Daily minimum temperature ( "*degree*C*")")) +
-  theme(text = element_text(size=fontSize))
+  theme(text = element_text(size=fontSize)) 
 
 #radn
-g3 <- metFile %>%
-  filter(year %in% 1960:2015) %>%
-  group_by(day) %>%
- # summarise_each(funs(mean)) %>%
-  ggplot(aes(x=day, y=radn))  +
-  geom_line(colour= "darkblue", alpha=0.2) +
-  stat_smooth(level = 0.9, size = 1, colour="white") + 
- theme_bw() +
-  xlab("Day of the year (1-365)") + 
+g3 <- weather_trial %>%
+  ggplot(aes(x=Date, y=radn))  +
+  geom_point(colour= "darkblue", alpha=0.3) +
+  geom_line(data=weather_hist.expanded, 
+            aes(x=Date, y=radn_mean), colour="black") +
+ # theme_bw() +
+  xlab("Date") + 
+  ylab("Daily maximum temperature (oC)") +
+#  ylab(expression("Daily maximum temperature ( "*degree*C*")")) +
  # ylab("Daily solar radiation (MJ/m2)" ) +
    ylab(expression(Daily~solar~radiation~~"(MJ "*m^"-2"*")")) +
-  theme(text = element_text(size=fontSize))
+   theme(text = element_text(size=fontSize))
 
 # rain
-metFile$month <- with(metFile, strptime(paste(year, day), format="%Y %j")$mon+1)
+weather_trial$month <- with(weather_trial, strptime(paste(year, day), format="%Y %j")$mon+1)
 
-g4 <- metFile %>%
-  filter(year %in% 1960:2015) %>%
+g4 <- weather_trial %>%
   group_by(year, month) %>%
   summarise_each(funs(sum)) %>%
   group_by(month) %>%
@@ -134,11 +190,9 @@ g4 <- metFile %>%
   theme(text = element_text(size=fontSize))
 
 
-grid.arrange(g1, g2, g3, g4)
+grid.arrange(g1, g2, g3, nrow=2)
 # Save
 # ggsave(file="Fig_weather.tiff", dpi = 300)
-
-
 ```
 
 ```{r PotEvap_graph}
