@@ -139,6 +139,66 @@ summary(weather_trial)
 
 
 
+Get potential ET from APSIM
+
+```{r PotEvap_graph}
+
+# Get file (simulated eo by APSIM - Pot ET for modsim paper)
+theFile <- "C:\\Apsim_dev\\Projects\\Forage_MBIE(FRNL)\\ModelStudies\\05_CoverCropPaperSoils\\LightSoil EarlyCover ETPdaily.out"
+
+etpFile <- read.table(theFile, skip = 3, header = TRUE, comment.char = "(", blank.lines.skip = TRUE)
+# head(etpFile)
+# tail(etpFile)
+# summary(etpFile)
+
+etp_work <- etpFile %>%
+  dplyr::select(Date:month, eo) %>%
+  mutate(Date = dmy(Date))
+
+summary(etp_work)
+
+
+
+```
+
+# do averages of et pot
+
+```{r}
+
+etp_day_av <- etp_work %>%
+  filter(year %in% 1970:2010) %>%
+#  mutate(DOY = yday(Date)) %>% # days of year
+  group_by(day_of_year) %>%
+#  dplyr::select(day:month) %>%
+  summarise_each(funs(mean)) %>%
+  mutate(month = as.integer(month))%>%
+  as.data.frame()
+
+summary(weather_day_avg)
+
+
+```
+
+Append y similar seasons of histirical etp
+
+```{r}
+# Quick way of creating 3 similar years
+y1 <- etp_day_av %>% mutate(Date = ymd("2011-01-01 UTC") %m+% days(as.integer(day_of_year-1)))
+y2 <- etp_day_av %>% mutate(Date = ymd("2012-01-01 UTC") %m+% days(as.integer(day_of_year-1))) 
+y3 <- etp_day_av %>% mutate(Date = ymd("2013-01-01 UTC") %m+% days(as.integer(day_of_year-1)))
+y4 <- etp_day_av %>% mutate(Date = ymd("2014-01-01 UTC") %m+% days(as.integer(day_of_year-1)))
+
+etp_day_av.hist <- NULL
+etp_day_av.hist <- rbind(y1,y2,y3,y4)
+
+summary(etp_day_av.hist)
+
+```
+
+
+
+
+
 ```{r,fig.width=12, fig.height=8, warning=FALSE}
 
 
@@ -181,7 +241,8 @@ g3 <- weather_trial %>%
    ylab(expression(Daily~solar~radiation~~"(MJ "*m^"-2"*")")) +
    theme(text = element_text(size=fontSize))
 
-# rain
+# FIXME: rain and ET should be all per month no per day
+# rain 
 #weather_trial$month <- with(weather_trial, strptime(paste(year, day), format="%Y %j")$mon+1)
 rain.month.hyst <- weather_day.hist %>% 
   mutate(year=year(Date)) %>%
@@ -200,7 +261,9 @@ g4 <- weather_trial %>%
   # geom_line(data=rain.month.hyst, 
   #           aes(x=date, y=rain), colour="black") +
     geom_line(data=weather_day.hist, 
-            aes(x=Date, y=rain*30.5), colour="black", alpha=0.3) +
+            aes(x=Date, y=rain*30.5), colour="blue", alpha=0.3) +
+      geom_line(data=etp_day_av.hist, 
+            aes(x=Date, y=eo*30.5), colour="black", alpha=0.3, linetype=2) +
  # theme_bw() +
   xlab("Date") + 
   ylab("Monthly rainfall (mm)") +
@@ -211,58 +274,45 @@ g4 <- weather_trial %>%
 
 
 grid.arrange(g1, g2, g3, g4, nrow=2)
+
+etp_day_av.hist
+
 # Save
 # ggsave(file="Fig_weather.tiff", dpi = 300)
 ```
 
-```{r PotEvap_graph}
 
-# Get file (simulated eo by APSIM - Pot ET for modsim paper)
-theFile <- "C:\\Apsim_dev\\Projects\\Forage_MBIE(FRNL)\\ModelStudies\\05_CoverCropPaperSoils\\LightSoil EarlyCover ETPdaily.out"
-
-etpFile <- read.table(theFile, skip = 3, header = TRUE, comment.char = "(", blank.lines.skip = TRUE)
-head(etpFile)
-tail(etpFile)
-summary(etpFile)
-
-
-#etpFile$Date <- as.Date(etpFile$Dat, format="%dd-%mm-%YYYY")
-
-#etpFile$day <- yday(etpFile$Date)
-
-#write.csv(etpFile, file = "test.csv")
-
-summary(etpFile)
-
-g5 <- etpFile %>%
-  filter(year %in% 1960:2000) %>%
-   group_by(day_of_year) %>%
- # summarise_each(funs(mean)) %>%
-  ggplot(aes(x=day_of_year, y=eo))  +
-  geom_point(colour= "darkblue", alpha=0.2) +
-  stat_smooth(level = 0.9, size = 1, colour="white") + 
-  xlab("Day of the year (1-365)") + 
-  ylab("Potential evapo-transpiration (mm)") +
-  theme(text = element_text(size=fontSize))
-
-
-g5 <- etpFile %>%
-  filter(year %in% 1960:2000) %>%
-  group_by(year, month) %>%
-  summarise_each(funs(sum)) %>%
-  group_by(month) %>%
-  select(month, eo) %>%
-  summarise(rainMean = mean(eo), rainSd = sd(eo)/2) %>%
-  ggplot(aes(x=month, y=rainMean)) + 
-  geom_bar(stat ='identity') +
-  xlab("month") + 
-  ylab("Potential evapo-transpiration (mm)") +
-  scale_x_continuous(breaks=1:12) +
-  geom_errorbar(aes(ymax = rainMean + rainSd, ymin=rainMean - rainSd), 
-                position=position_dodge(width=0.9), width=0.25)+
-  theme(text = element_text(size=fontSize))
-
-grid.arrange(g1, g3, g4, g5)
+```{r}
+# g5 <- etpFile %>%
+#   filter(year %in% 1960:2000) %>%
+#    group_by(day_of_year) %>%
+#  # summarise_each(funs(mean)) %>%
+#   ggplot(aes(x=day_of_year, y=eo))  +
+#   geom_point(colour= "darkblue", alpha=0.2) +
+#   stat_smooth(level = 0.9, size = 1, colour="white") + 
+#   xlab("Day of the year (1-365)") + 
+#   ylab("Potential evapo-transpiration (mm)") +
+#   theme(text = element_text(size=fontSize))
+# 
+# 
+# g5 <- etpFile %>%
+#   filter(year %in% 1960:2000) %>%
+#   group_by(year, month) %>%
+#   summarise_each(funs(sum)) %>%
+#   group_by(month) %>%
+#   select(month, eo) %>%
+#   summarise(rainMean = mean(eo), rainSd = sd(eo)/2) %>%
+#   ggplot(aes(x=month, y=rainMean)) + 
+#   geom_bar(stat ='identity') +
+#   xlab("month") + 
+#   ylab("Potential evapo-transpiration (mm)") +
+#   scale_x_continuous(breaks=1:12) +
+#   geom_errorbar(aes(ymax = rainMean + rainSd, ymin=rainMean - rainSd), 
+#                 position=position_dodge(width=0.9), width=0.25)+
+#   theme(text = element_text(size=fontSize))
+# 
+# 
+# grid.arrange(g1, g3, g4, g5)
 
 ```
 
