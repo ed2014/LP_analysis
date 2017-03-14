@@ -35,7 +35,7 @@ metFile <- data.frame(metFile)
 
 # create a date
 metFile$Date <- as.Date(paste(metFile$year, metFile$day , sep = "." )  , format = "%Y.%j" )
-metFile$Month <- as.numeric(month(metFile$Date))
+metFile$month <- as.numeric(month(metFile$Date))
 
 ```
 
@@ -47,7 +47,7 @@ summary(metFile)
 
 > Daily temperaure and radiation
 
-> Monthly rainfall
+> monthly rainfall
 
 > Pooled for 30 years
 
@@ -60,18 +60,18 @@ fontSize <- 15
 # historical data df --------------------------------
 weather_hist <- metFile %>%
   filter(year %in% 1960:2010) %>%
-  group_by(Month) %>%
+  group_by(month) %>%
   summarise_each(funs(mean, sd)) %>%
   as.data.frame()
 
 # place holder for 4 similar sets of annual historical averages
 df_exp_temp <- weather_hist[rep(row.names(weather_hist), 4), 1:ncol(weather_hist)]
-df_exp_temp$Month <- c(1:nrow(df_exp_temp)) # number the months sequentially
+df_exp_temp$month <- c(1:nrow(df_exp_temp)) # number the months sequentially
 
 # create mid-point "mock dates" for trial period
 weather_hist.expanded <- df_exp_temp %>%
   mutate(BaseDate = ymd(baseDate)) %>%
-  mutate(Date =  BaseDate %m+% months(Month-1)) %>% # creates dates starting from base and adding the number of months 
+  mutate(Date =  BaseDate %m+% months(month-1)) %>% # creates dates starting from base and adding the number of months 
   dplyr::select(-BaseDate,-year_mean)
 
 summary(weather_hist.expanded)
@@ -90,9 +90,9 @@ weather_day_avg <- metFile %>%
   filter(year %in% 1960:2010) %>%
 #  mutate(DOY = yday(Date)) %>% # days of year
   group_by(day) %>%
-  dplyr::select(day:vp) %>%
+  dplyr::select(day:month) %>%
   summarise_each(funs(mean)) %>%
-#  mutate(Day = as.integer(day_mean))%>%
+  mutate(month = as.integer(month))%>%
   as.data.frame()
 
 summary(weather_day_avg)
@@ -100,19 +100,30 @@ summary(weather_day_avg)
 
 ```{r}
 
-# FIXME: NOT working yet 
+str(df_exp_temp)
 
-# place holder for multiplied historical averages
-df_exp_temp <- weather_day_avg[rep(row.names(weather_day_avg), 4), 1:ncol(weather_day_avg)]
-df_exp_temp$Month_mean <- c(1:nrow(df_exp_temp)) 
+# Quick way of creating 3 similar years
+y1 <- weather_day_avg %>% mutate(Date = ymd("2011-01-01 UTC") %m+% days(as.integer(day-1)))
+y2 <- weather_day_avg %>% mutate(Date = ymd("2012-01-01 UTC") %m+% days(as.integer(day-1))) 
+y3 <- weather_day_avg %>% mutate(Date = ymd("2013-01-01 UTC") %m+% days(as.integer(day-1)))
+y4 <- weather_day_avg %>% mutate(Date = ymd("2014-01-01 UTC") %m+% days(as.integer(day-1)))
 
-# create mid-point "mock dates" for trial period
-weather_day.expanded <- df_exp_temp %>%
-  mutate(BaseDate = ymd(baseDate)) %>%
-  mutate(Date =  BaseDate %m+% months(Month_mean-1)) %>%
-  dplyr::select(-BaseDate,-year_mean)
+weather_day.hist <- NULL
+weather_day.hist <- rbind(y1,y2,y3,y4)
 
-summary(weather_day.expanded)
+# # FIXME: NOT working yet 
+# 
+# # place holder for multiplied historical averages
+# #df_exp_temp <- weather_day_avg[rep(row.names(weather_day_avg), 4), 1:ncol(weather_day_avg)]
+# #df_exp_temp$rowNo <- row.names.data.frame(df_exp_temp) 
+# 
+# # create mid-point "mock dates" for trial period
+# weather_day.expanded <- df_exp_temp %>%
+#   mutate(BaseDate = ymd(baseDate)) %>%
+#   mutate(Date = ymd("2011-01-01 UTC") %m+% days(as.integer(day-1)))
+#  # dplyr::select(-BaseDate,-year_mean)
+
+summary(weather_day.hist)
 ```
 
 
@@ -136,8 +147,8 @@ summary(weather_trial)
 g1 <- weather_trial %>%
   ggplot(aes(x=Date, y=maxt))  +
   geom_point(colour= "darkblue", alpha=0.3) +
-  geom_line(data=weather_hist.expanded, 
-            aes(x=Date, y=maxt_mean), colour="black") +
+  geom_line(data=weather_day.hist, 
+            aes(x=Date, y=maxt), colour="black") +
  # theme_bw() +
   xlab("Date") + 
   ylab("Daily maximum temperature (oC)") +
@@ -148,8 +159,8 @@ g1 <- weather_trial %>%
 g2 <- weather_trial %>%
   ggplot(aes(x=Date, y=mint))  +
   geom_point(colour= "darkblue", alpha=0.3) +
-  geom_line(data=weather_hist.expanded, 
-            aes(x=Date, y=mint_mean), colour="black") +
+  geom_line(data=weather_day.hist, 
+            aes(x=Date, y=mint), colour="black") +
  # theme_bw() +
   xlab("Date") + 
   ylab("Daily minimum temperature (oC)") +
@@ -160,8 +171,8 @@ g2 <- weather_trial %>%
 g3 <- weather_trial %>%
   ggplot(aes(x=Date, y=radn))  +
   geom_point(colour= "darkblue", alpha=0.3) +
-  geom_line(data=weather_hist.expanded, 
-            aes(x=Date, y=radn_mean), colour="black") +
+  geom_line(data=weather_day.hist, 
+            aes(x=Date, y=radn), colour="black") +
  # theme_bw() +
   xlab("Date") + 
   ylab("Daily maximum temperature (oC)") +
@@ -171,26 +182,35 @@ g3 <- weather_trial %>%
    theme(text = element_text(size=fontSize))
 
 # rain
-weather_trial$month <- with(weather_trial, strptime(paste(year, day), format="%Y %j")$mon+1)
+#weather_trial$month <- with(weather_trial, strptime(paste(year, day), format="%Y %j")$mon+1)
+rain.month.hyst <- weather_day.hist %>% 
+  mutate(year=year(Date)) %>%
+  group_by(month, year)  %>%
+  summarise(rain= sum(rain) , date = mean(Date))
 
 g4 <- weather_trial %>%
-  group_by(year, month) %>%
-  summarise_each(funs(sum)) %>%
-  group_by(month) %>%
-  select(month, rain) %>%
-  summarise(rainMean = mean(rain), rainSd = sd(rain)/2) %>%
-  ggplot(aes(x=month, y=rainMean)) + 
-  geom_bar(stat ='identity') +
-  theme_bw() +
- xlab("Month") + 
+  group_by(month,year) %>%
+  summarise(rain= sum(rain) , date = mean(Date)) %>%
+  # ungroup() +
+  # group_by(month,year) %>%
+  # select(month,year, rain) %>%
+#  summarise(rainMean = mean(rain), rainSd = sd(rain)/2) %>%
+  ggplot(aes(x=date, y=rain)) + 
+   geom_bar(stat ='identity', fill="white", colour="black") +  
+  # geom_line(data=rain.month.hyst, 
+  #           aes(x=date, y=rain), colour="black") +
+    geom_line(data=weather_day.hist, 
+            aes(x=Date, y=rain*30.5), colour="black", alpha=0.3) +
+ # theme_bw() +
+  xlab("Date") + 
   ylab("Monthly rainfall (mm)") +
-  scale_x_continuous(breaks=1:12) +
-  geom_errorbar(aes(ymax = rainMean + rainSd, ymin=rainMean - rainSd), 
-                position=position_dodge(width=0.9), width=0.25)+
+ # scale_x_continuous(breaks=1:12) +
+  # geom_errorbar(aes(ymax = rainMean + rainSd, ymin=rainMean - rainSd), 
+  #               position=position_dodge(width=0.9), width=0.25)+
   theme(text = element_text(size=fontSize))
 
 
-grid.arrange(g1, g2, g3, nrow=2)
+grid.arrange(g1, g2, g3, g4, nrow=2)
 # Save
 # ggsave(file="Fig_weather.tiff", dpi = 300)
 ```
@@ -235,7 +255,7 @@ g5 <- etpFile %>%
   summarise(rainMean = mean(eo), rainSd = sd(eo)/2) %>%
   ggplot(aes(x=month, y=rainMean)) + 
   geom_bar(stat ='identity') +
-  xlab("Month") + 
+  xlab("month") + 
   ylab("Potential evapo-transpiration (mm)") +
   scale_x_continuous(breaks=1:12) +
   geom_errorbar(aes(ymax = rainMean + rainSd, ymin=rainMean - rainSd), 
