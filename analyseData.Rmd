@@ -21,6 +21,8 @@ library(xtable)
 
 options("scipen"=100, "digits"=4) # prints not in scientific notation
 
+saveDir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_5" # for graphs
+
 ```
 
 ## FIXME list
@@ -734,16 +736,16 @@ summary(simsWithBestFitForDry)
 
 # Graph lucerne
 
-```{r, fig.width=12, fig.height=15, echo = FALSE}
+```{r, fig.width=8, fig.height=10, echo = FALSE}
 
 # Graph lucerne
-simsWithBestFitForDry  %>%
+g <- simsWithBestFitForDry  %>%
 #  filter(Crop == thisCrop) %>%
   ggplot() +
 #  geom_point(data=dataWork[dataWork$Crop == thisCrop,], aes(x=Date, y=Pred), colour="darkgrey",alpha=0.1) + # add shade of all sims
   geom_point(data=dataWork,aes(x=Date, y=Pred), colour="darkgrey",alpha=0.1) +
   geom_point(aes(x=Date, y=Obs), size=2, shape = 1, colour="darkred") +
-  geom_line(aes(x=Date, y=Pred),colour="black", size=1.2) +
+  geom_line(aes(x=Date, y=Pred),colour="black", size=1.05) +
 #  geom_point(aes(x=Date, y=Pred),colour="black", size=0.2) +
  # facet_grid(Depth~Irrigation, scales = "free") + 
   facet_grid(Depth~Crop+Irrigation) + 
@@ -752,9 +754,16 @@ simsWithBestFitForDry  %>%
   geom_vline(xintercept = as.numeric(simsWithBestFitForDry$Date[estLoc]),linetype = 2, colour="black") +
  # ylab("Volumetric soil moisture (mm)") +
    labs(y=expression("Volumetric soil moisture "~(cm^{3}~cm^{-3})))+
-  theme(text = element_text(size=15))  + 
+  theme(text = element_text(size=8))  + 
   theme_bw() + 
   theme(strip.background = element_blank())
+
+#ggsave(file="Fig_TestFit.tiff", dpi = 300)
+g
+# Save
+# saveDir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1"
+ ggsave(file="Fig_8_FitTest.tiff", dpi = 300, path=saveDir, g)
+
 ```
 
 ## XY graph of above best fit dataset 
@@ -837,10 +846,14 @@ ungroup() %>%
   group_by(Crop,RootFrontVelocity,KLReduction,SurfaceKl, index_crop) %>% # agregate by crop only
   summarise(Perc95CI = sum(Within_CI95)/n()*100, ObsNo = n()) # counts and % sims within the 95%CI
 
+
+
+```
+
+```{r}
 tableCI95_bestFit %>%
   dplyr::select(-(RootFrontVelocity:index_crop)) %>%
   kable(digits=2)
-
 ```
 
 
@@ -902,7 +915,7 @@ gauch_depth %>%
 
 # How are the stats by treatment and depth?
 
-```{r, fig.width=15, fig.height=15, warning=FALSE, echo = FALSE }
+```{r, fig.width=8, fig.height=8, warning=FALSE, echo = FALSE }
 df <- gauch_depth %>%
   mutate(mse = rmse^2,
   sb=((sb/100*mse)/meanObs)*100,
@@ -921,10 +934,11 @@ df <- gauch_depth %>%
   mutate(StatsType = factor(StatsType, levels = c("sb","nu","lc", "mse")))
 
 # graph
-  df %>%
+g <-  df %>%
 #  filter(Crop == "Lucerne") %>%
   ungroup() %>%  
-  mutate(Depth = factor(Depth, level = rev(Depth))) %>%
+  mutate(StatsType = factor(StatsType, levels= c("sb","nu","lc","mse"),labels=c("SB","NU","LC","mse"))) %>%
+  mutate(Depth = factor(Depth, levels = rev(unique(Depth)))) %>%
   filter(StatsType != "mse") %>%
   ggplot(aes(x=Depth, y=StatsValue,fill=StatsType)) +
   geom_bar(stat='identity') +
@@ -934,8 +948,13 @@ df <- gauch_depth %>%
 #  theme(text = element_text(size=rel(4))) +
 #  theme(legend.text=element_text(size=16)) + 
     theme(legend.title=element_blank()) +
-    theme(text = element_text(size=20)) +
+    theme(text = element_text(size=16)) +
     theme(legend.position="top")
+  
+  g
+# Save
+ saveDir <- "C:\\GitHubRepos\\LP_analysis\\"
+ ggsave(file="Fig_9_SensAnBar.tiff", dpi = 300, path=saveDir, g)
   
 ```
 
@@ -1004,12 +1023,13 @@ data_bf <- tempdf %>%
 
 - Note that the "best-fit" for dry is not necessarily the best fit for all 
 
-```{r PlotSimPop, fig.height=20,fig.width=15, echo=FALSE, warning=FALSE}
+```{r PlotSimPop, fig.height=10,fig.width=8, echo=FALSE, warning=FALSE}
 
-data_bf %>%
+g <- data_bf %>%
+  mutate(SurfaceKl_f = as.factor(as.numeric(as.character(SurfaceKl))/100)) %>%
   ggplot(aes(y=r_rmse, x=lc)) + # not working yet
-  geom_point(alpha=0.8, aes(size=factor(KLReduction),
-                 colour=factor(SurfaceKl),
+  geom_point(alpha=0.8,size=2, aes(size=factor(KLReduction),
+                 colour=factor(SurfaceKl_f),
                  shape=factor(RootFrontVelocity))) +
   scale_shape_discrete(solid=F)  +
   xlab("Lack of correlation (LC, % MSE) ") + ylab(" Relative RMSE (% observed mean)") +
@@ -1017,7 +1037,7 @@ data_bf %>%
   labs(shape="RFV", 
        colour=expression("kl"["0"]), 
        size=expression(lambda["kl"])) +
-  theme(text = element_text(size=20))+
+  theme(text = element_text(size=16)) +
   theme(legend.position="top")  +
   facet_wrap(Crop+Stage~Irrigation,ncol=4) + # FIXME: Order matters - facet_grid might do the job?
   geom_vline(data=temp_data_bf,aes(xintercept=temp_data_bf$lc), linetype=2, colour="black") + 
@@ -1025,6 +1045,12 @@ data_bf %>%
   # now add elipse around "good-enough" simulations - FIXME 
  # + stat_ellipse(type = "norm", aes(linetype = range_idx == 1)) + 
  #  scale_linetype_manual(values=c("blank", "dotted")) 
+
+
+  g
+# Save
+# saveDir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1"
+ ggsave(file="Fig_10_Equif.tiff", dpi = 300, path=saveDir, g)
 
 ```
 

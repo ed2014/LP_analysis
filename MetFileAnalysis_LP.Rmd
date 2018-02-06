@@ -16,6 +16,7 @@ library(ggplot2)
 library(gridExtra)
 library(lubridate)
 library(scales)
+round1Dir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1" # for graphs
 ```
 
 ## The weather file
@@ -260,25 +261,28 @@ g4 <- weather_trial %>%
    geom_bar(stat ='identity', fill="white", colour="black") +  
   # geom_line(data=rain.month.hyst, 
   #           aes(x=date, y=rain), colour="black") +
-    geom_line(data=weather_day.hist, 
-            aes(x=Date, y=rain*30.5), colour="blue", alpha=0.3) +
+    # geom_line(data=weather_day.hist, 
+    #         aes(x=Date, y=rain*30.5), colour="blue", alpha=0.3) +
       geom_line(data=etp_day_av.hist, 
             aes(x=Date, y=eo*30.5), colour="black", alpha=0.3, linetype=2) +
  # theme_bw() +
   xlab("Date") + 
-  ylab("Monthly rainfall (mm)") +
+  ylab("Monthly rainfall and ET (mm)") +
  # scale_x_continuous(breaks=1:12) +
   # geom_errorbar(aes(ymax = rainMean + rainSd, ymin=rainMean - rainSd), 
   #               position=position_dodge(width=0.9), width=0.25)+
   theme(text = element_text(size=fontSize))
 
 
-grid.arrange(g1, g2, g3, g4, nrow=2)
+g <- arrangeGrob(g1, g2, g3, g4, nrow=2)
 
 etp_day_av.hist
 
 # Save
-# ggsave(file="Fig_weather.tiff", dpi = 300)
+ round1Dir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1"
+ ggsave(file="Fig_1_weather.tiff", dpi = 300, path=round1Dir, g)
+ 
+ getwd()
 ```
 
 

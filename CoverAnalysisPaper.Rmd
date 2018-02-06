@@ -8,6 +8,9 @@ library(lubridate)
 library(tidyr)
 library(dplyr)
 library(ggplot2)
+
+round1Dir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1" # for graphs
+
 ```
 
 
@@ -94,7 +97,7 @@ summary(cover_int_av)
 ```{r, warning=FALSE}
 
 # graph
-cover_meas_av %>%
+g <- cover_meas_av %>%
   ggplot(aes(x=Date,y=mean, colour=Irrig, shape=factor(Irrig))) +
   geom_point() +
   scale_shape(solid = FALSE) +
@@ -104,6 +107,12 @@ cover_meas_av %>%
   geom_errorbar(aes(ymin=mean-sd/2,
                     ymax=mean+sd/2), width = 2) +
   geom_line(data=cover_int_av, aes(x=Date,y=CoverValue),size=1.0, alpha=0.5) + guides(shape=FALSE)
+
+g
+
+# Save
+ round1Dir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1"
+ ggsave(file="Fig_2_cover.tiff", dpi = 300, path=round1Dir, g)
 
 ```
 

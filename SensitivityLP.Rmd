@@ -17,6 +17,9 @@ library(GGally)
 library(xtable)
 
 options("scipen"=100, "digits"=4) # prints not in scientific notation
+
+round1Dir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1" # for graphs
+
 ```
 
 Read
@@ -150,7 +153,7 @@ si_df_final$thisIrrig <- factor(si_df_final$thisIrrig, levels=c("No Irrigation",
                                  "Medium Frequency", 
                                  "High Frequency"))
 
-si_df_final %>%
+g <- si_df_final %>%
   tidyr::gather("Si_Item","Si_Value", SurfaceKl:Interactions) %>%
   mutate(Si_Item = factor(Si_Item, levels = c("SurfaceKl",
                                  "KLReduction",
@@ -168,6 +171,11 @@ si_df_final %>%
   xlab("Water supply treatment") +
   theme(axis.text.x = element_text(angle = 45, hjust=1)) + theme(legend.title=element_blank()) +
   theme(text = element_text(size=16))
+
+g
+
+ggsave(file="Fig_7_Sens.tiff", dpi = 300, path=round1Dir, g)
+
 ```
 
 Doing 
