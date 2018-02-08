@@ -21,7 +21,7 @@ library(xtable)
 
 options("scipen"=100, "digits"=4) # prints not in scientific notation
 
-saveDir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_5" # for graphs
+saveDir <- "C:\\GitHubRepos\\LP_analysis\\"
 
 ```
 
@@ -48,8 +48,8 @@ saveDir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePa
 # dataRaw <- read.csv("K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\ObsPre.csv", 
 #                     header = TRUE)
 
-obsPredFile <- "ObsPreSD15.csv"
-#obsPredFile <- "ObsPreSD30.csv" # We assumed this is too severe for crops such as ryegrass
+obsPredFile <- "ObsPreSD15.csv" # uses the k0 (maximum value of kl) at 15 cm depth 
+#obsPredFile <- "ObsPreSD30.csv" # We assumed k0 at 30 cm is too severe for crops such as ryegrass
 
 obsPredFolder <- "K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\"
 
@@ -69,53 +69,34 @@ head(temp_obs)
 dataRaw_merge <- merge(dataRaw,temp_obs, by=c("Depth","Crop","Irrigation", "Date"))
   
 ```
+
+
 ```{r}
 head(dataRaw_merge)
 ```
 
+## Clean and tidy up dataset
 
-```{r dataTidy}
-
-# Create working df and sort out formats - 
-dataWork <- as.data.frame(dataRaw_merge)
-
-# Force parameter values to factors
-dataWork$Date <- as.Date(ymd(dataWork$Date))
-dataWork$SurfaceKl <- as.factor(dataWork$SurfaceKl)
-dataWork$RootFrontVelocity <- as.factor(dataWork$RootFrontVelocity)
-dataWork$KLReduction <- as.factor(dataWork$KLReduction)
-
-# sort depth out
-dataWork$Depth <- gsub("D", "", dataWork$Depth)
-dataWork$Depth <- factor(dataWork$Depth, 
-                         levels = c(7, 23, 30, 50, 70, 90, 110, 130, 150))
-dataWork$Depth <- as.factor(dataWork$Depth)
+```{r dataTidyUp}
 
 # Create separate Establishment and Regrowth periods
 estDate <- "2012-06-01" # FIXME: find a more functional criteria later
 
-
-
-
-#estDate <- "2012-01-01" # FIXME: test sensitivity to this date
-#estDate <- "2012-06-01 00:00:00"
-dataWork$Stage <- as.factor(ifelse(dataWork$Date<=estDate,"Establishment","Regrowth"))
-# sort out irrigation treat names
-dataWork <- dataWork %>% mutate(Irrigation = factor(Irrigation, 
-                                                    levels=c("None", 
-                                                             "ThreeWeekly",
-                                                             "OnePerWeek",
-                                                             "TwoPerWeek"))) # re-order factors
-levels(dataWork$Irrigation) <- c("No Irrigation",
-                                 "Low Frequency",
-                                 "Medium Frequency", 
-                                 "High Frequency") # rename factors, attention to match!
-# sort out crop names
-dataWork <- dataWork %>% mutate(Crop=factor(Crop, levels=c("Lucerne", "Pasture"))) # re-order factors
-levels(dataWork$Crop) <- c("Lucerne","Ryegrass") # rename factors, attention to match!
-
-# revove unrealistic levels (FIXME: decibe about this after discussing with Hamish)
-#dataWork <- dataWork %>% filter(SurfaceKl != "20") 
+dataWork <- dataRaw_merge %>% 
+  filter(SurfaceKl != "20") %>% # revove unrealistic parameter levels from test set
+  mutate(Date = as.Date(ymd(Date)),
+        SurfaceKl = as.factor(SurfaceKl),
+        RootFrontVelocity = as.factor(as.character(RootFrontVelocity)),                
+        SurfaceKl = as.factor(as.character(SurfaceKl)),                
+        KLReduction = as.factor(as.character(KLReduction)),
+        Depth = as.character(gsub("D", "",Depth)),#  FIXME: not sure why does not work all in one line
+        Depth=factor(Depth,levels= c("7", "23", "30", "50", "70", "90", "110", "130", "150")),
+        Stage=  as.factor(ifelse(Date<=estDate,"Establishment","Regrowth")),
+        Crop = factor(Crop, levels=c("Lucerne", "Pasture"), labels = c("Lucerne","Ryegrass")),
+        Irrigation= factor(Irrigation,levels=c("None","ThreeWeekly","OnePerWeek","TwoPerWeek"), 
+                           labels=c("No Irrigation","Low Frequency","Medium Frequency", "High Frequency"))
+  ) 
+str(dataWork)
 
 # Check levels
 levels(dataWork$Depth)
@@ -953,7 +934,7 @@ g <-  df %>%
   
   g
 # Save
- saveDir <- "C:\\GitHubRepos\\LP_analysis\\"
+
  ggsave(file="Fig_9_SensAnBar.tiff", dpi = 300, path=saveDir, g)
   
 ```

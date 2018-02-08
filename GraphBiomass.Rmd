@@ -26,7 +26,7 @@ summary(info)
 str(info)
 ```
 
-```{r Check}
+```{r Check, fig.height=10}
 
 info %>%
   tidyr::gather("Variable", "Value", 5:6) %>%
@@ -97,5 +97,46 @@ tableSum <- SumData %>%
 ```{r}
 tableSum %>%
   kable(format = "markdown", digits = 2)
+```
+
+## Graph for paper
+
+```{r, fig.height=10, fig.width=12}
+
+# late fix of labels
+info_work <- info %>% mutate(Irrigation = factor(Irrigation, 
+                                                    levels=c("Dry", 
+                                                             "Low",
+                                                             "Med",
+                                                             "Hig"),
+                                            labels= c("No",
+                                 "Low",
+                                 "Medium", 
+                                 "High"))) # re-order factors
+
+
+g<-info_work %>%
+  tidyr::gather("Variable", "Value", 5:6) %>%
+  group_by(Crop, Season, Irrigation, Variable) %>%
+  dplyr::select(-Rep) %>%
+  filter(Variable=="Yield_tHa") %>%
+  summarise_all(funs(mean,sd)) %>%
+  ggplot(aes(x=Irrigation, y=mean)) +
+  geom_bar(stat="identity") + 
+ # geom_boxplot(alpha=0.1) +
+#  geom_jitter(width=0.1) +
+  facet_grid(Crop~Season, scales = "free") +
+  xlab("Irrigation frequency") +
+  ylab("Forage dry matter yield\n (t/ha per year)") +
+  theme(text = element_text(size=20)) +
+    geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd),
+                  width=.2,                    # Width of the error bars
+                  position=position_dodge(.9)) +
+  theme(axis.text.x=element_text(angle=45, hjust=1))
+g
+
+# save it for the sensitivity analysis
+saveDir <- "C:\\GitHubRepos\\LP_analysis\\"
+ ggsave(file="Fig_X_BiomassSeasnonal.tiff", dpi = 300, path=saveDir, g)
 ```
 
