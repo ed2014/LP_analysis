@@ -289,7 +289,7 @@ gauchStats <- function(sim, meas) {
 s <- c(4231.972,3935.604,3779.652,3627.687,3363.499,3230.566,2868.114,2868.827)
 m <- c(4987.66,5636.09,4754.06,4114.53,4141.72,3704.06,5142.19,4762.03)
 
-gauchStats(s,m)
+gauchStats(s,m) # result: [1] 76.5  5.2 18.2 99.9  7.1
 ```
 
 ## Creates a generic set of stats to output 

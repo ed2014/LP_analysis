@@ -9,8 +9,8 @@ library(tidyr)
 library(dplyr)
 library(ggplot2)
 
-round1Dir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1" # for graphs
-
+#saveDir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1" # for graphs
+saveDir <- "C:\\GitHubRepos\\LP_analysis\\"
 ```
 
 
@@ -71,7 +71,7 @@ cover_meas_av <- cover_meas %>%
                         labels=c("Rain-fed","Low frequency","Medium frequency","High frequency"))) %>%
   group_by(Date, Crop, Irrig) %>%
   dplyr::select(-Plot,-Block) %>%
-  summarise_each(funs(mean, sd))
+  summarise_all(funs(mean, sd))
 
 summary(cover_meas_av)
 ```
@@ -102,17 +102,18 @@ g <- cover_meas_av %>%
   geom_point() +
   scale_shape(solid = FALSE) +
   facet_grid(Crop~.) +
-  ylab("Canopy cover (fractional)") +
+#  ylab("Canopy cover (fractional)") +
   labs(colour="Water supply\n treatment") +
   geom_errorbar(aes(ymin=mean-sd/2,
                     ymax=mean+sd/2), width = 2) +
-  geom_line(data=cover_int_av, aes(x=Date,y=CoverValue),size=1.0, alpha=0.5) + guides(shape=FALSE)
+  geom_line(data=cover_int_av, aes(x=Date,y=CoverValue),size=1.0, alpha=0.5) + guides(shape=FALSE) +
+    labs(y=expression("Fractional radiation interception (R"[0]*"/"*"R"[i]*")"))
 
 g
 
 # Save
- round1Dir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1"
- ggsave(file="Fig_2_cover.tiff", dpi = 300, path=round1Dir, g)
+# saveDir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1"
+ ggsave(file="Fig_2_cover.tiff", dpi = 300, path=saveDir, g)
 
 ```
 
