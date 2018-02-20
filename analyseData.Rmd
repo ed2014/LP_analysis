@@ -8,7 +8,7 @@ output:
 ## Aim:
 
 - Analyse field experiment with lucerne and ryegrass at Plant and Food Research
-- 2 species x 4 irrigation (no, low-, med-, highh-frequency)
+- 2 species x 4 irrigation (no, low-, med-, high-frequency)
 - Compare data with APSIMx-SLURP model estimates
 - Field data cleaned/prepared and APSIM-X modelling by Hamish Brown (Hamish.Brown@plantandfood.co.nz)
 - Combined data (sims x obs) and kl analysis by Edmar Teixeira (Edmar.Teixeira@plantandfood.co.nz)
@@ -83,7 +83,7 @@ head(dataRaw_merge)
 estDate <- "2012-06-01" # establishment date
 
 dataWork <- dataRaw_merge %>% 
-  filter(SurfaceKl != "20") %>% # revove unrealistic parameter levels from test set
+  filter(SurfaceKl != "20") %>% # revove unrealistic parameter levels (use for extra-broad sensititity) from test set
   mutate(Date = as.Date(ymd(Date)),
         SurfaceKl = as.factor(SurfaceKl),
         RootFrontVelocity = as.factor(as.character(RootFrontVelocity)),                
@@ -115,18 +115,8 @@ summary(dataWork)
 str(dataWork)
 ```
 
-```{r, echo=FALSE}
-# final product
-#str(dataWork)
-
-```
-
 ```{r, include = TRUE}
 head(dataWork, 20)
-```
-
-```{r}
-#summary(dataWork)
 ```
 
 ## Check Observed and Simulated time-series
@@ -134,10 +124,6 @@ head(dataWork, 20)
 - Show time-series
 
 - Simulated parameter combinations' data (grey) and observed values (red)
-
-- Note that, in some cases, observations are at the edge of simulation's range. 
-
-- <span style="color:red">To discuss: Is this a sign that parameter ranges should be expanded???</span>  
 
 ```{r GraphExample, fig.height=8,fig.width=15, echo=FALSE}
 
@@ -261,7 +247,8 @@ doStats <-  function (x) {
 ## Create indexes necessary for data aggregation to do stats
 
 - Aggregate Pred x Obs data by different "factors" to apply stats
-- For example, to test best parameter combinations for "each" crop and "each" Stage, use: - i.e. calculates stats across "all" soil depths and "all" water-treatments for each "Crop and Stage" combination
+- For example, to test best parameter combinations for "each" crop and "each" Stage
+- For this e.g.: calculates stats across "all" soil depths and "all" water-treatments for each "Crop and Stage" combination
 - Multiple agregations are tested below
 
 ```{r CreateIndexes, echo=TRUE}
@@ -380,7 +367,7 @@ summarise(Perc95CI = sum(Within_CI95)/n()*100, ObsNo = n()) %>%
 
 ## Calculate stats across data subsets
 
-Selection of stat indexes to use, at the moment we're following the refs:
+Selection of stat indexes to use, we're following the refs:
 
 (i) Moriasi, D.N., Arnold, J.G., Van Liew, M.W., Bingner, R.L., R.D., H., Veith, T.L., 2007. Model evaluation guidelines for systematic quantification of accuracy in watershed simulations. Transactions of the ASABE 50, 885-900
 
@@ -417,15 +404,9 @@ summary(statDF_crop_stage_irrig)
 
 - Use the stats calculated above
 
-- <span style="color:red">Which method do we use to calibrate/optimise parameters?</span>
+- Many of the indexes are "highly" correlated by definition - i.e. they are measures of same aspects (e.g. nse x r_rmse x rmse)
 
-- Although there are sure many "standard" options: See Chapter 6 in Wallach, D., Makowski, D., Jones, J.W., 2013. Working with Dynamic Crop Models : Methods, Tools and Examples for Agriculture and Environment (2). Academic Press, Amsterdam, NL. ...
-
-- ... we still need to "decide" what a "best-fit" is. 
-
-- Many of the indexes are "highly" correlated - i.e. they are measures of same aspects (e.g. nse x r_rmse x rmse)
-
-- So we propose to combine stats that have low correlation with each other, as they capture different aspects 
+- So we propose to combine stats that have low correlation with each other, as they capture different dymensions 
 
 - Colours are the diffrenet crops lucerne (red) and ryegrass (blue)
 
