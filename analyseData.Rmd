@@ -719,12 +719,19 @@ summary(simsWithBestFitForDry)
 
 ```{r, fig.width=8, fig.height=10, echo = FALSE}
 
+# simplify labels
+pointGraphDF <- dataWork %>%
+  mutate(Irrigation=factor(Irrigation,levels=c("No Irrigation","Low Frequency","Medium Frequency", "High Frequency"),
+                                      labels=c("No Irr.","Low Freq.","Medium Freq.","High Freq.")))
+
 # Graph lucerne
 g <- simsWithBestFitForDry  %>%
+  mutate(Irrigation=factor(Irrigation,levels=c("No Irrigation","Low Frequency","Medium Frequency", "High Frequency"),
+                                      labels=c("No Irr.","Low Freq.","Medium Freq.","High Freq."))) %>%
 #  filter(Crop == thisCrop) %>%
   ggplot() +
 #  geom_point(data=dataWork[dataWork$Crop == thisCrop,], aes(x=Date, y=Pred), colour="darkgrey",alpha=0.1) + # add shade of all sims
-  geom_point(data=dataWork,aes(x=Date, y=Pred), colour="darkgrey",alpha=0.1) +
+  geom_point(data=pointGraphDF,aes(x=Date, y=Pred), colour="darkgrey",alpha=0.1) +
   geom_point(aes(x=Date, y=Obs), size=2, shape = 1, colour="darkred") +
   geom_line(aes(x=Date, y=Pred),colour="black", size=1.05) +
 #  geom_point(aes(x=Date, y=Pred),colour="black", size=0.2) +
@@ -733,17 +740,17 @@ g <- simsWithBestFitForDry  %>%
 #  scale_x_date(labels = date_format("%b")) + 
   scale_shape(solid = FALSE) + 
   geom_vline(xintercept = as.numeric(simsWithBestFitForDry$Date[estLoc]),linetype = 2, colour="black") +
- # ylab("Volumetric soil moisture (mm)") +
+  xlab("Growth season") +
    labs(y=expression("Volumetric soil moisture "~(cm^{3}~cm^{-3})))+
   theme(text = element_text(size=8))  + 
   theme_bw() + 
-  theme(strip.background = element_blank())
+  theme(strip.background = element_blank()) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 #ggsave(file="Fig_TestFit.tiff", dpi = 300)
 g
 # Save
 # saveDir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1"
- ggsave(file="Fig_8_FitTest.tiff", dpi = 300, path=saveDir, g)
+ ggsave(file="Fig_FitTest.tiff", dpi = 300, path=saveDir, g)
 
 ```
 
@@ -935,7 +942,7 @@ g <-  df %>%
   g
 # Save
 
- ggsave(file="Fig_9_SensAnBar.tiff", dpi = 300, path=saveDir, g)
+ ggsave(file="Fig_SensAnBar.tiff", dpi = 300, path=saveDir, g)
   
 ```
 
@@ -1031,7 +1038,7 @@ g <- data_bf %>%
   g
 # Save
 # saveDir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1"
- ggsave(file="Fig_10_Equif.tiff", dpi = 300, path=saveDir, g)
+ ggsave(file="Fig_Equif.tiff", dpi = 300, path=saveDir, g)
 
 ```
 
