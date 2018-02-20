@@ -5,7 +5,16 @@ output:
   word_document: default
 ---
 
+## Aim:
+
+- Analyse field experiment with lucerne and ryegrass at Plant and Food Research
+- 2 species x 4 irrigation (no, low-, med-, highh-frequency)
+- Compare data with APSIMx-SLURP model estimates
+- Field data cleaned/prepared and APSIM-X modelling by Hamish Brown (Hamish.Brown@plantandfood.co.nz)
+- Combined data (sims x obs) and kl analysis by Edmar Teixeira (Edmar.Teixeira@plantandfood.co.nz)
+
 ```{r LoadLibs, echo=FALSE, include=FALSE}
+
 library(xtable)
 library(knitr)
 library(RSQLite)
@@ -25,14 +34,6 @@ saveDir <- "C:\\GitHubRepos\\LP_analysis\\"
 
 ```
 
-## FIXME list
-
-- Print numeric value of Surfacekl in csv output
-- Use numeric value of parameters as characters througout to simplify comparisons
-- Depth can come as numeric too
-- The current criteria for parameter selection has HUGE leverage on results
-- How to define best fit?????
-
 ## Load and massage the data
 
 - Tidy up factors/levels (note the need to set new label on csv dataset)
@@ -41,46 +42,45 @@ saveDir <- "C:\\GitHubRepos\\LP_analysis\\"
 
 - Get data formats right
 
-
 ```{r ReadData, echo=FALSE,include=TRUE, echo=FALSE}
 
-#dataRaw <- read.csv("C:\\GitHubRepos\\LP_analysis\\ObsPre.csv", header = TRUE, skip = 4)
+# dataRaw <- read.csv("C:\\GitHubRepos\\LP_analysis\\ObsPre.csv", header = TRUE, skip = 4)
 # dataRaw <- read.csv("K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\ObsPre.csv", 
 #                     header = TRUE)
 
-obsPredFile <- "ObsPreSD15.csv" # uses the k0 (maximum value of kl) at 15 cm depth 
-#obsPredFile <- "ObsPreSD30.csv" # We assumed k0 at 30 cm is too severe for crops such as ryegrass
+# Read Hamish's APSIM-X simulations
+obsPredFile <- "ObsPreSD15.csv" # uses the k0 (maximum value of kl) at 15 cm depth as ryegrass has shawllow roots
 
 obsPredFolder <- "K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\"
 
 dataRaw <- read.csv(paste0(obsPredFolder,obsPredFile),header = TRUE)
-#head(dataRaw)
+
 summary(dataRaw)
 ```
 
-
 # merge with observation per replicate
 
-
+### read
 ```{r}
+# Read field observed data prepared by Hamish
 temp_obs <- read.csv("K:\\CPDiary\\Data\\Lucerne & pasture drought trial 2011-2012\\ModelFitting\\worked_observed_data.csv")
-
 head(temp_obs)
-dataRaw_merge <- merge(dataRaw,temp_obs, by=c("Depth","Crop","Irrigation", "Date"))
-  
 ```
 
-
+### Do the merge
 ```{r}
+dataRaw_merge <- merge(dataRaw,temp_obs, by=c("Depth","Crop","Irrigation", "Date"))
 head(dataRaw_merge)
 ```
 
 ## Clean and tidy up dataset
 
+- combined sims and obs
+
 ```{r dataTidyUp}
 
 # Create separate Establishment and Regrowth periods
-estDate <- "2012-06-01" # FIXME: find a more functional criteria later
+estDate <- "2012-06-01" # establishment date
 
 dataWork <- dataRaw_merge %>% 
   filter(SurfaceKl != "20") %>% # revove unrealistic parameter levels from test set
@@ -89,7 +89,7 @@ dataWork <- dataRaw_merge %>%
         RootFrontVelocity = as.factor(as.character(RootFrontVelocity)),                
         SurfaceKl = as.factor(as.character(SurfaceKl)),                
         KLReduction = as.factor(as.character(KLReduction)),
-        Depth = as.character(gsub("D", "",Depth)),#  FIXME: not sure why does not work all in one line
+        Depth = as.character(gsub("D", "",Depth)),
         Depth=factor(Depth,levels= c("7", "23", "30", "50", "70", "90", "110", "130", "150")),
         Stage=  as.factor(ifelse(Date<=estDate,"Establishment","Regrowth")),
         Crop = factor(Crop, levels=c("Lucerne", "Pasture"), labels = c("Lucerne","Ryegrass")),
@@ -105,33 +105,19 @@ levels(dataWork$KLReduction)
 levels(dataWork$RootFrontVelocity)
 
 ```
-
-# reduce parameter space to 5 levels
-
-```{r}
-# dataWork <- dataWork %>%
-#   filter(RootFrontVelocity != "5")
-```
-
+## Check clean dataset
 
 ```{r}
-# Check
-#head(dataWork)
 summary(dataWork)
-
 ```
 
 ```{r}
 str(dataWork)
 ```
-
-
-## Check clean dataset
-
 
 ```{r, echo=FALSE}
 # final product
-str(dataWork)
+#str(dataWork)
 
 ```
 
@@ -140,7 +126,7 @@ head(dataWork, 20)
 ```
 
 ```{r}
-summary(dataWork)
+#summary(dataWork)
 ```
 
 ## Check Observed and Simulated time-series
@@ -164,52 +150,6 @@ dataWork %>%
   facet_grid(Depth~Crop+Irrigation) +
   geom_vline(xintercept = as.numeric(as.Date(ymd(estDate))), linetype=2) 
 
-```
-
-```{r RepVariab, include=FALSE, echo=FALSE}
-
-# FIXME: Using mock values of observed values per rep until get atual from Hamish
-
-# This will be deleted one we have actual values available
-
-# df_mock <- dataWork %>%
-#   filter(SurfaceKl == "3", KLReduction=="-0.01", RootFrontVelocity=="5") %>% # get a single parameter combination
-#   mutate(Rep_1 = Obs*runif(1, min = 0.8, max = 1.2)) %>%
-#   mutate(Rep_2 = Obs*runif(1, min = 0.8, max = 1.2)) %>%
-#   mutate(Rep_3 = Obs*runif(1, min = 0.8, max = 1.2)) %>%
-#   mutate(Rep_4 = Obs*runif(1, min = 0.8, max = 1.2)) %>%
-#   rowwise() %>%
-#   mutate(Obs_av = sum(Rep_1,Rep_2,Rep_3,Rep_4)/4)  %>%
-#   mutate(CI95_down = (Obs_av-3.182*sd(c(Rep_1,Rep_2,Rep_3, Rep_4)))) %>% # FIXME: check with Esther how to
-#   mutate(CI95_up = (Obs_av+3.182*sd(c(Rep_1,Rep_2,Rep_3, Rep_4)))) # calculate 95% CI properly
-# 
-# # head(df_mock)
-
-```
-
-## Check averages - calculated and raw from Hamish's run
-```{r, include=FALSE, echo=FALSE}
-plot(dataWork$Obs_av,dataWork$Obs)
-```
-
-```{r, fig.height=15,fig.width=15, echo=FALSE}
-# 
-# df_mock %>%
-#   dplyr::select(-Stage,-(SurfaceKl:Obs)) %>%
-#   dplyr::select(Crop, Date, Irrigation,Depth, Rep_1:Obs_av) %>%
-#   tidyr::gather("Rep","Obs",Rep_1:Obs_av) %>% # FIXME: check names to be used in raw data
-#   mutate(Rep = factor(Rep)) %>%
-#   filter(Rep != "Obs_av") %>% 
-#   ggplot(aes(x=Date, y=Obs)) +
-#   geom_point(aes(colour=factor(Rep)), alpha=0.5) +
-#   geom_smooth(colour="black", size=1.1) +
-#   geom_line(data=df_mock, aes(x=Date, y=CI95_down), linetype=2, colour="darkgrey") +
-#   geom_line(data=df_mock, aes(x=Date, y=CI95_up), linetype=2, colour="darkgrey") +
-#   facet_grid(Depth~Crop+Irrigation) + 
-# #  scale_x_date(labels = date_format("%b")) + scale_shape(solid = FALSE) + 
-#   ylab("Volumetric soil moisture (mm)") +
-#   theme(text = element_text(size=18)) +
-#     labs(colour="Experiental replicate") + theme(legend.position="top")
 ```
 
 ## Graph Predicted x Observed
@@ -243,8 +183,6 @@ dataWork %>%
 - Reference: Gauch Jr, H.G., Hwang, J.T.G., Fick, G.W., 2003. Model evaluation by comparison of model-based predictions and measured values. Agron. J. 95, 1442-1446
 
 ```{r CreateStats, echo=FALSE, include=FALSE}
-
-# Create stats function as per Gauch et al paper
 
 gauchStats <- function(sim, meas) {
 
@@ -427,7 +365,6 @@ within95CI_df <- dataWork %>%
 
 - Graph shows distribution of % of points within the 95% CI of observed
 
-
 ```{r, fig.height=10, fig.width=12, warning = FALSE, include = FALSE}
 
 # This has to be done for stats batch "best" fit or stats calculation
@@ -492,7 +429,7 @@ summary(statDF_crop_stage_irrig)
 
 - Colours are the diffrenet crops lucerne (red) and ryegrass (blue)
 
-```{r CompareStatIndexes, fig.height=8,fig.width=12, echo=FALSE, warning=FALSE, }
+```{r CompareStatIndexes, fig.height=8,fig.width=12, echo=FALSE, warning=FALSE}
 # with stats by Crop
 statDF_crop_stage_irrig %>%
 group_by(Crop) %>%
@@ -502,13 +439,11 @@ ggpairs(aes(colour=Crop),labelHJust=1)
 
 For our situation, where we started from pre-simulated values for parameter combinations.
 
-the proposed logic for parameter selection is:
+The proposed logic for parameter selection is:
 
 - Two indexes that capture (i) simulation error and (ii) simulation bias
 
 - We choose two that have weak correlation between themselves:(i) Option 1 (RMSE + LC) from Gauch et al 2003 or (ii) Option 2 (RSR + pBias) from Moriase et al 2007
-
--<span style="color:red">Is this appropriate? Any other ideas?</span>
 
 # Current approach:
 
@@ -526,25 +461,17 @@ the proposed logic for parameter selection is:
 
 - From these, find the one with lowest error (low RMSE or RSR)
 
-- If multiple simulations fulfill criteria, take the one with lowest numeric parameter values (FIXME)
+- If multiple simulations fulfill criteria, take the one with lowest numeric parameter values
 
 The choice of any best fit if multiple have same stats is due to equifinality - that will be explicitly dealt with later.
 
 Table below show the best fit (parameter-combination) for each crop/stage/irrigation
 
-
 ```{r SelectBestSims, warning=FALSE}
 
 # get stats for all combinations and filter for dry when needed
 
-# idea ... loop across stages and treatment combinations
-# idea: use percentile to get parameter uncertanty 
-# use histogram of estimated values?
-# FIXME: It is unclear how to combine stats criteria to select what the best simulation is
-
-# FIXME: change names what's the diff between bestFitsims and best_fit_all?
-
-percSel <- 0.25 # percentile of simulations to be selected (Attention to index criteria)
+percSel <- 0.25 # percentile of simulations to be selected (Attention to index criteria used)
 
 # finds lowest r_rmse for the establishment phase first
 bestFit_sims <- statDF_crop_stage_irrig  %>%
@@ -562,9 +489,9 @@ bestFit_sims <- statDF_crop_stage_irrig  %>%
   # mutate(pBias_pos = ifelse(pBias<0, -1*pBias, pBias)) %>% # adjust pBias to be always positive
   # filter(pBias_pos < quantile(pBias_pos, 0.05) | rsr < quantile(rsr, 0.05))
 #  filter(rsr == min(rsr) ) %>%   # get smallest error
-  filter(row_number() == min(row_number()))# FIXME: gets lowest param value if stats are the similar for many combinations 
+  filter(row_number() == min(row_number())) # FIXME: Gets lowest param value if stats are the similar for many combinations (any alternative criteria?)
 
-#write.csv(bestFit_sims, "testStatsBias.csv")
+# write.csv(bestFit_sims, "testStatsBias.csv")
 
 # only for single selection
  rownames(bestFit_sims) <- paste0(substr(bestFit_sims$Crop,1,3),"_",
@@ -580,20 +507,15 @@ bestFit_sims <- statDF_crop_stage_irrig  %>%
     kable(format = "markdown", align = 'c')
   # xtable()
  
-
- # Isolate all best fits (FIXME: is this still used?)
+ # Isolate all best fits (FIXME: check if still needed)
  selecParamsEst <- as.character(unique(bestFit_sims$index_crop_stage_irrig))
 
 ```
 
+### Evaluate residuals of best fit selection 
 
 ```{r, fig.height=10, fig.width=15, warning = FALSE, include=FALSE, echo = FALSE}
-
-# Evaluate residuals of best fit selection (stored for re-use if needed)
-# 
-# - Visually it seems "rainfed" simulations are less biased
-# - This will be quantitativelly picked by bias indexes I believe (Check with Esther) 
-
+# (stored for re-use if needed)
 dataWork %>%
   filter(index_crop_stage_irrig %in% as.character(bestFit_sims$index_crop_stage_irrig)) %>%
 #  mutate(Res = (Pred-Obs)/Obs*100) %>%
@@ -645,7 +567,7 @@ doStats()
 summary(statDF_crop_irrig)
 ```
 
-# Select best parameters for dryland conditions (fixed RFV)
+# Select best parameters for dryland conditions (with fixed RFV)
 
 ```{r BestFit}
 
@@ -655,7 +577,7 @@ bestFit_dry <- statDF_crop_irrig  %>%
  group_by(Crop, Irrigation) %>%
  filter(r_rmse < quantile(r_rmse, (percSel))) %>%
  filter(lc == max(lc)) %>%   # get sm
- filter(row_number() == min(row_number())) %>% # FIXME: gets lowest param value for similar
+ filter(row_number() == min(row_number())) %>% # FIXME: gets lowest param value for similar behaviour (any alternative criteria?)
  filter(Irrigation == "No Irrigation") # keeps only the dry treats
 
 summary(bestFit_dry)
@@ -774,7 +696,6 @@ simsWithBestFitForDry %>%
   labs(fill="Soil depth (cm)") + guides(colour=FALSE) 
 ```
 
-
 ## How are stats for all irrigation treatments 
 
 - Using best-fit for dryland
@@ -844,7 +765,6 @@ tableCI95_bestFit %>%
   kable(digits=2)
 ```
 
-
 # For individual treats
 ```{r}
 # For individual crop/stage/irrig
@@ -862,7 +782,6 @@ tableCI95 %>%
 write.csv(tableCI95,"C:\\GitHubRepos\\LP_analysis\\tableCI95.csv")
 
 ```
-
 
 ## How are statistics across different "soil depths" 
 
@@ -913,7 +832,6 @@ df <- gauch_depth %>%
     #      sb=sb*mse,
     #      nu=nu*mse,
     #      lc=lc*mse) %>%
- # FIXME: What's the best stats to use here?
  #  mutate(mse = rmse^2, sb=sb/100*mse, nu=nu/100*mse, lc=lc/100*mse) %>%
  #  mutate(mse = r_rmse, sb=sb/100*mse, nu=nu/100*mse, lc=lc/100*mse) %>%
  # dplyr::select(-n, -r2,-rmse,-r_rmse,-nse) %>%
@@ -965,11 +883,11 @@ temp_data_bf <- statDF_crop_stage_irrig %>%
 
 ```
 
-Flag "behavioral" simulations (i.e. subjective "similarly-good" simulations) - NOT USED yet
+### Flag "behavioral" simulations 
 
 ```{r}
 
-# FIXME: untested
+# FIXME: test only - NOT USED
 
 # create df with "best fit" stat values and ranges
 rangeBestFit <- 0.025 # % of value around rRMSE and LC
@@ -1027,7 +945,7 @@ g <- data_bf %>%
        size=expression(lambda["kl"])) +
   theme(text = element_text(size=16)) +
   theme(legend.position="top")  +
-  facet_wrap(Crop+Stage~Irrigation,ncol=4) + # FIXME: Order matters - facet_grid might do the job?
+  facet_wrap(Crop+Stage~Irrigation,ncol=4) +
   geom_vline(data=temp_data_bf,aes(xintercept=temp_data_bf$lc), linetype=2, colour="black") + 
   geom_hline(data=temp_data_bf, aes(yintercept=temp_data_bf$r_rmse), linetype=2, colour="black") 
   # now add elipse around "good-enough" simulations - FIXME 
