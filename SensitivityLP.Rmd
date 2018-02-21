@@ -18,8 +18,8 @@ library(xtable)
 
 options("scipen"=100, "digits"=4) # prints not in scientific notation
 
-round1Dir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1" # for graphs
-
+#saveDir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1" # for graphs
+saveDir <- "\\\\Lin-file\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_6"
 ```
 
 Read
@@ -174,7 +174,7 @@ g <- si_df_final %>%
 
 g
 
-ggsave(file="Fig_7_Sens.tiff", dpi = 300, path=round1Dir, g)
+ggsave(file="Fig_Sens.tiff", dpi = 300, path=saveDir, g)
 
 ```
 
