@@ -104,15 +104,12 @@ tableSum %>%
 ```{r, fig.height=10, fig.width=12}
 
 # late fix of labels
-info_work <- info %>% mutate(Irrigation = factor(Irrigation, 
-                                                    levels=c("Dry", 
-                                                             "Low",
-                                                             "Med",
-                                                             "Hig"),
-                                            labels= c("No",
-                                 "Low",
-                                 "Medium", 
-                                 "High"))) # re-order factors
+info_work <- info %>% 
+  # mutate(Season = factor(Season,levels=c("Season 1","Season 2","Season 3"),
+  #                               labels= c("2012","2013","2014"))) %>%
+                      mutate(Irrigation = factor(Irrigation, 
+                                                    levels=c("Dry","Low","Med","Hig"),
+                                                    labels= c("No","Low","Medium", "High"))) # re-order factors
 
 
 g<-info_work %>%
@@ -127,7 +124,7 @@ g<-info_work %>%
 #  geom_jitter(width=0.1) +
   facet_grid(Crop~Season, scales = "free") +
   xlab("Irrigation frequency") +
-  ylab("Forage dry matter yield\n (t/ha per year)") +
+  ylab("Forage dry matter yield\n (t DM/ha per year)") +
   theme(text = element_text(size=20)) +
     geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd),
                   width=.2,                    # Width of the error bars
@@ -136,7 +133,8 @@ g<-info_work %>%
 g
 
 # save it for the sensitivity analysis
-saveDir <- "C:\\GitHubRepos\\LP_analysis\\"
- ggsave(file="Fig_X_BiomassSeasnonal.tiff", dpi = 300, path=saveDir, g)
+#saveDir <- "C:\\GitHubRepos\\LP_analysis\\"
+saveDir <- "\\\\Lin-file\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_6"
+ggsave(file="Fig_BiomassSeasonal.tiff", dpi = 300, path=saveDir, g)
 ```
 

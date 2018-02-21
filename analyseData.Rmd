@@ -30,8 +30,8 @@ library(xtable)
 
 options("scipen"=100, "digits"=4) # prints not in scientific notation
 
-saveDir <- "C:\\GitHubRepos\\LP_analysis\\"
-
+#saveDir <- "C:\\GitHubRepos\\LP_analysis\\"
+saveDir <- "\\\\Lin-file\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_6"
 ```
 
 ## Load and massage the data
@@ -649,10 +649,9 @@ g <- simsWithBestFitForDry  %>%
   theme_bw() + 
   theme(strip.background = element_blank()) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-#ggsave(file="Fig_TestFit.tiff", dpi = 300)
 g
+
 # Save
-# saveDir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1"
  ggsave(file="Fig_FitTest.tiff", dpi = 300, path=saveDir, g)
 
 ```
@@ -839,8 +838,8 @@ g <-  df %>%
     theme(legend.position="top")
   
   g
+  
 # Save
-
  ggsave(file="Fig_SensAnBar.tiff", dpi = 300, path=saveDir, g)
   
 ```
@@ -935,8 +934,8 @@ g <- data_bf %>%
 
 
   g
+
 # Save
-# saveDir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1"
  ggsave(file="Fig_Equif.tiff", dpi = 300, path=saveDir, g)
 
 ```

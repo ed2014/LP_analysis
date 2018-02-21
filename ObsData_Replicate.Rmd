@@ -17,8 +17,8 @@ library(scales)
 library(GGally)
 library(xtable)
 
-round1Dir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1" # for graphs
-
+#saveDir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1" # for graphs
+saveDir <- "\\\\Lin-file\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_6"
 ```
 
 # Read observed data by replicate
@@ -140,7 +140,7 @@ head(repWork)
 
 g
 
-ggsave(file="Fig_6_ObsData.tiff", dpi = 300, path=round1Dir, g)
+ggsave(file="Fig_ObsData.tiff", dpi = 300, path=saveDir, g)
 
 ```
 

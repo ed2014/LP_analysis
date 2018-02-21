@@ -16,7 +16,8 @@ library(ggplot2)
 library(gridExtra)
 library(lubridate)
 library(scales)
-round1Dir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1" # for graphs
+
+saveDir <- "\\\\Lin-file\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_6"
 ```
 
 ## The weather file
@@ -62,7 +63,7 @@ fontSize <- 15
 weather_hist <- metFile %>%
   filter(year %in% 1960:2010) %>%
   group_by(month) %>%
-  summarise_each(funs(mean, sd)) %>%
+  summarise_all(funs(mean, sd)) %>%
   as.data.frame()
 
 # place holder for 4 similar sets of annual historical averages
@@ -92,7 +93,7 @@ weather_day_avg <- metFile %>%
 #  mutate(DOY = yday(Date)) %>% # days of year
   group_by(day) %>%
   dplyr::select(day:month) %>%
-  summarise_each(funs(mean)) %>%
+  summarise_all(funs(mean)) %>%
   mutate(month = as.integer(month))%>%
   as.data.frame()
 
@@ -171,7 +172,7 @@ etp_day_av <- etp_work %>%
 #  mutate(DOY = yday(Date)) %>% # days of year
   group_by(day_of_year) %>%
 #  dplyr::select(day:month) %>%
-  summarise_each(funs(mean)) %>%
+  summarise_all(funs(mean)) %>%
   mutate(month = as.integer(month))%>%
   as.data.frame()
 
@@ -279,10 +280,8 @@ g <- arrangeGrob(g1, g2, g3, g4, nrow=2)
 etp_day_av.hist
 
 # Save
- round1Dir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1"
- ggsave(file="Fig_1_weather.tiff", dpi = 300, path=round1Dir, g)
- 
- getwd()
+ ggsave(file="Fig_Weather.tiff", dpi = 300, path=saveDir, g)
+
 ```
 
 
@@ -290,7 +289,7 @@ etp_day_av.hist
 # g5 <- etpFile %>%
 #   filter(year %in% 1960:2000) %>%
 #    group_by(day_of_year) %>%
-#  # summarise_each(funs(mean)) %>%
+#  # summarise_all(funs(mean)) %>%
 #   ggplot(aes(x=day_of_year, y=eo))  +
 #   geom_point(colour= "darkblue", alpha=0.2) +
 #   stat_smooth(level = 0.9, size = 1, colour="white") + 
@@ -302,7 +301,7 @@ etp_day_av.hist
 # g5 <- etpFile %>%
 #   filter(year %in% 1960:2000) %>%
 #   group_by(year, month) %>%
-#   summarise_each(funs(sum)) %>%
+#   summarise_all(funs(sum)) %>%
 #   group_by(month) %>%
 #   select(month, eo) %>%
 #   summarise(rainMean = mean(eo), rainSd = sd(eo)/2) %>%

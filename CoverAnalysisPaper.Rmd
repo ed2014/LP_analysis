@@ -9,8 +9,8 @@ library(tidyr)
 library(dplyr)
 library(ggplot2)
 
-#saveDir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1" # for graphs
-saveDir <- "C:\\GitHubRepos\\LP_analysis\\"
+#saveDir <- "C:\\GitHubRepos\\LP_analysis\\"
+saveDir <- "\\\\Lin-file\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_6"
 ```
 
 
@@ -112,8 +112,7 @@ g <- cover_meas_av %>%
 g
 
 # Save
-# saveDir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1"
- ggsave(file="Fig_2_cover.tiff", dpi = 300, path=saveDir, g)
+ ggsave(file="Fig_cover.tiff", dpi = 300, path=saveDir, g)
 
 ```
 

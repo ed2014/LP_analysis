@@ -1,9 +1,8 @@
 library(tidyr)
 library(dplyr)
 library(ggplot2)
-#round1Dir <- "\\\\Lindfs12\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_1" # for graphs
-saveDir <- "C:\\GitHubRepos\\LP_analysis\\"
-#info <- read.table("\\\\Lindfs12\\home$\\Cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\graphs\\kl_decayRates.txt", header=TRUE)
+
+saveDir <- "\\\\Lin-file\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePasture\\kl\\submitted\\round_6"
 
 info <- read.table("C:\\GitHubRepos\\LP_analysis\\kl_decayRates.txt", header=TRUE)
 
@@ -24,4 +23,4 @@ g <- info %>%
 g
 
 # Save
-ggsave(file="Fig_5_kl_decay.tiff", dpi = 300, path=saveDir,width = 12, height = 6, g)
+ggsave(file="Fig_kl_decay.tiff", dpi = 300, path=saveDir, width = 12, height = 6, g)
