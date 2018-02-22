@@ -83,7 +83,7 @@ head(dataRaw_merge)
 estDate <- "2012-06-01" # establishment date
 
 dataWork <- dataRaw_merge %>% 
-  filter(SurfaceKl != "20") %>% # revove unrealistic parameter levels (use for extra-broad sensititity) from test set
+  filter(SurfaceKl %in% c("1","3","5","7","9","11"))  %>%
   mutate(Date = as.Date(ymd(Date)),
         SurfaceKl = as.factor(SurfaceKl),
         RootFrontVelocity = as.factor(as.character(RootFrontVelocity)),                
