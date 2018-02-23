@@ -2,6 +2,10 @@
 title: "SensitivityLP"
 output: html_document
 ---
+AIM:
+
+Uses Esther Meeken's method to calculate sensitivity with ANOVA to compare leverage each factor has on total variability
+
 ```{r, echo=FALSE}
 library(xtable)
 library(knitr)
@@ -32,9 +36,7 @@ summary(info)
 
 ## Do ANOVA sensitivity analysis
 
-- Esther's method
-
-
+- Method developed and revised by Esther Meeken (Esther.Meenken@agresearch.co.nz)
 
 ```{r}
 df_av <- info %>%
@@ -43,10 +45,10 @@ df_av <- info %>%
   mutate(simIndex = as.factor(simIndex)) %>%
   group_by(Crop,Stage,Irrigation,simIndex,SurfaceKl,KLReduction,RootFrontVelocity) %>%
   dplyr::select(Crop,Stage,Irrigation,simIndex,SurfaceKl,KLReduction,RootFrontVelocity,Pred) %>%
-  summarise_each(funs(mean))
+  summarise_all(funs(mean))
 
 simIndexUnique <- unique(df_av$simIndex)
-
+summary(df_av)
 ```
 
 ```{r}
@@ -66,7 +68,6 @@ for(i in 1:length(simIndexUnique)) {
   
   # get vector with sums of squares
   anova_SS <- anovaTable[[1]]$'Sum Sq'
-#   anova_SS <- anovaTable[[1]]$'Mean Sq'# esther suggested SS to be used - test only
   
   # internal df to hold ss values
   df_ss <- NULL
@@ -82,7 +83,6 @@ for(i in 1:length(simIndexUnique)) {
  
  # Creates a column with "normalised" percent of total variation (SS) 
   df_ss$SS_p <- round((df_ss$SS/sum(df_ss$SS))*100,3)
- #  df_ss$SS_p <- round((df_ss$MS/sum(df_ss$MS))*100,3) # esther reccomends SS to be used - test only
   
   # Add SS of interections as a new vector element that adds to 100%
 sumInt <- sum(df_ss$SS_p[(noFactors+1):length(namesAnTab)]) # Calculate sums total SS due to interactions (i.e. sums every SS that is not main factor)
@@ -111,7 +111,7 @@ colnames(df_si) <- c("PercTotal_SS", "FactorName")
                    si_Out_p[4]
                    )
  
- noLabels <- 3 # FIXME: do it prittier later
+ noLabels <- 3 # FIXME: do it dynamic later
 
   # label Si df FIXME: Automate this
   colnames(df_si)[noLabels+1] <- gsub(" ","",paste0(mainFactNames[1]))
@@ -178,7 +178,9 @@ ggsave(file="Fig_Sens.tiff", dpi = 300, path=saveDir, g)
 
 ```
 
-Doing 
+## Doing absolute values
+
+- for checking, not used
 
 ```{r AbsoluteSS_for Esther}
 si_df_final <- NULL
@@ -196,7 +198,6 @@ for(i in 1:length(simIndexUnique)) {
   
   # get vector with sums of squares
   anova_SS <- anovaTable[[1]]$'Sum Sq'
- #  anova_SS <- anovaTable[[1]]$'Mean Sq'# esther suggested SS to be used - test only
   
   # internal df to hold ss values
   df_ss <- NULL
@@ -210,10 +211,6 @@ for(i in 1:length(simIndexUnique)) {
   mainFactNames <- rownames (df_ss)[-grep(':',rownames (df_ss))] # isolate the main factors from
   noFactors <- length(mainFactNames)  # counts row names that do not have ":" i.e. from interaction
  
- # Creates a column with "normalised" percent of total variation (SS) 
- # df_ss$SS_p <- round((df_ss$SS/sum(df_ss$SS))*100,3)
-  # df_ss$SS_p <- round((df_ss$MS/sum(df_ss$MS))*100,3) # esther suggested SS to be used - test only
-  
   df_ss$SS_p <- df_ss$SS # just for testing - esthers request
   
   # Add SS of interections as a new vector element that adds to 100%
@@ -256,11 +253,6 @@ colnames(df_si) <- c("PercTotal_SS", "FactorName")
 }
 
 summary(si_df_final)
-
-
-
-
-
 
 ```
 
