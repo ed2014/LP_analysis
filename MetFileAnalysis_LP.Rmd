@@ -218,6 +218,7 @@ Append y similar seasons of histogram etp
 
 ```
 
+Construct the composed 4 panel figure
 
 ```{r,fig.width=12, fig.height=8, warning=FALSE}
 
@@ -294,7 +295,7 @@ g4 <- weather_trial %>%
 
 g <- arrangeGrob(g1, g2, g3, g4, nrow=2)
 g
-#etp_day_av.hist
+
 
 # Save
  ggsave(file="Fig_Weather.tiff", dpi = 300, path=saveDir, g)
