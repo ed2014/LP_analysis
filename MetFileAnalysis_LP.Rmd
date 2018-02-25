@@ -5,8 +5,6 @@ date: "Friday, March 27, 2015"
 output: html_document
 ---
 
-!!!!!!!!!!!!!!!!!!! UNFINISHED
-
 ## Reads met files from apsim (based on MapOutApsimFiles.R)
 ## Creates a dataframe with column row
 
@@ -23,25 +21,46 @@ saveDir <- "\\\\Lin-file\\home$\\cfleit\\My Documents\\My papers\\2013-LucernePa
 ## The weather file
 
 > That's how the data looks like
+> EP calculated as Penman-Monteith by Hamish's Python scripts
 
 ```{r DirSet, echo=FALSE}
 
 #Set paths
 #setwd("C:\\Apsim_dev\\Projects\\Forage_MBIE(FRNL)\\ModelStudies")
-metFolder <- "C:\\Apsim_dev\\Data\\MetFiles\\"
+#metFolder <- "C:\\Apsim_dev\\Data\\MetFiles\\"
+
+metFolder <- "K:/CPDiary/Data/Lucerne & pasture drought trial 2011-2012/ModelFitting/"
 
 # Get file
-metFile <- read.table(paste0(metFolder,"lincoln.met"), skip = 6, header = TRUE, comment.char = "(", blank.lines.skip = TRUE)
+# metFile <- read.table(paste0(metFolder,"LincolnMetWithEP.txt"), 
+#                       skip = 6, header = TRUE, comment.char = "(", blank.lines.skip = TRUE)
+
+metFile <- read.table(paste0(metFolder,"LincolnMetWithEP.txt"), header = TRUE, sep=",") # revised by Hamish plus ep calculation
 
 metFile <- data.frame(metFile)
 
+summary(metFile)
+
 # create a date
+#metFile$Date <- as.Date(paste(metFile$year, metFile$day , sep = "." )  , format = "%Y.%j" )
 metFile$Date <- as.Date(paste(metFile$year, metFile$day , sep = "." )  , format = "%Y.%j" )
 metFile$month <- as.numeric(month(metFile$Date))
+
+
+metFile %>%
+  filter(ep < 0) %>%
+  summary()
+
+
+
+
 
 ```
 
 ```{r}
+metFile <- metFile %>%
+  rowwise() %>%
+  mutate(ep = ifelse(ep<0,0,as.numeric(as.character(ep))))
 summary(metFile)
 ```
 
@@ -70,7 +89,7 @@ weather_hist <- metFile %>%
 df_exp_temp <- weather_hist[rep(row.names(weather_hist), 4), 1:ncol(weather_hist)]
 df_exp_temp$month <- c(1:nrow(df_exp_temp)) # number the months sequentially
 
-# create mid-point "mock dates" for trial period
+# create mid-point "reference" for trial period
 weather_hist.expanded <- df_exp_temp %>%
   mutate(BaseDate = ymd(baseDate)) %>%
   mutate(Date =  BaseDate %m+% months(month-1)) %>% # creates dates starting from base and adding the number of months 
@@ -99,7 +118,7 @@ weather_day_avg <- metFile %>%
 
 summary(weather_day_avg)
 ```
-
+## create long term mean df
 ```{r}
 
 str(df_exp_temp)
@@ -125,12 +144,14 @@ weather_day.hist <- rbind(y1,y2,y3,y4)
 #   mutate(Date = ymd("2011-01-01 UTC") %m+% days(as.integer(day-1)))
 #  # dplyr::select(-BaseDate,-year_mean)
 
+
+```
+
+```{r}
 summary(weather_day.hist)
 ```
 
-
-
-# plot for period of trials
+# select period of trials
 ```{r}
 weather_trial <- metFile %>%
   filter(year %in% 2011:2014) %>%
@@ -139,25 +160,25 @@ weather_trial <- metFile %>%
 summary(weather_trial)
 ```
 
-
-
 Get potential ET from APSIM
+
+- now Hamish calculates in base file - not needed
 
 ```{r PotEvap_graph}
 
 # Get file (simulated eo by APSIM - Pot ET for modsim paper)
-theFile <- "C:\\Apsim_dev\\Projects\\Forage_MBIE(FRNL)\\ModelStudies\\05_CoverCropPaperSoils\\LightSoil EarlyCover ETPdaily.out"
-
-etpFile <- read.table(theFile, skip = 3, header = TRUE, comment.char = "(", blank.lines.skip = TRUE)
-# head(etpFile)
-# tail(etpFile)
-# summary(etpFile)
-
-etp_work <- etpFile %>%
-  dplyr::select(Date:month, eo) %>%
-  mutate(Date = dmy(Date))
-
-summary(etp_work)
+# theFile <- "C:\\Apsim_dev\\Projects\\Forage_MBIE(FRNL)\\ModelStudies\\05_CoverCropPaperSoils\\LightSoil EarlyCover ETPdaily.out"
+# 
+# etpFile <- read.table(theFile, skip = 3, header = TRUE, comment.char = "(", blank.lines.skip = TRUE)
+# # head(etpFile)
+# # tail(etpFile)
+# # summary(etpFile)
+# 
+# etp_work <- etpFile %>%
+#   dplyr::select(Date:month, eo) %>%
+#   mutate(Date = dmy(Date))
+# 
+# summary(etp_work)
 
 
 
@@ -167,43 +188,38 @@ summary(etp_work)
 
 ```{r}
 
-etp_day_av <- etp_work %>%
-  filter(year %in% 1970:2010) %>%
-#  mutate(DOY = yday(Date)) %>% # days of year
-  group_by(day_of_year) %>%
-#  dplyr::select(day:month) %>%
-  summarise_all(funs(mean)) %>%
-  mutate(month = as.integer(month))%>%
-  as.data.frame()
-
-summary(weather_day_avg)
+# etp_day_av <- etp_work %>%
+#   filter(year %in% 1970:2010) %>%
+# #  mutate(DOY = yday(Date)) %>% # days of year
+#   group_by(day_of_year) %>%
+# #  dplyr::select(day:month) %>%
+#   summarise_all(funs(mean)) %>%
+#   mutate(month = as.integer(month))%>%
+#   as.data.frame()
+# 
+# summary(weather_day_avg)
 
 
 ```
 
-Append y similar seasons of histirical etp
+Append y similar seasons of histogram etp
 
 ```{r}
-# Quick way of creating 3 similar years
-y1 <- etp_day_av %>% mutate(Date = ymd("2011-01-01 UTC") %m+% days(as.integer(day_of_year-1)))
-y2 <- etp_day_av %>% mutate(Date = ymd("2012-01-01 UTC") %m+% days(as.integer(day_of_year-1))) 
-y3 <- etp_day_av %>% mutate(Date = ymd("2013-01-01 UTC") %m+% days(as.integer(day_of_year-1)))
-y4 <- etp_day_av %>% mutate(Date = ymd("2014-01-01 UTC") %m+% days(as.integer(day_of_year-1)))
-
-etp_day_av.hist <- NULL
-etp_day_av.hist <- rbind(y1,y2,y3,y4)
-
-summary(etp_day_av.hist)
+# # Quick way of creating 3 similar years
+# y1 <- etp_day_av %>% mutate(Date = ymd("2011-01-01 UTC") %m+% days(as.integer(day_of_year-1)))
+# y2 <- etp_day_av %>% mutate(Date = ymd("2012-01-01 UTC") %m+% days(as.integer(day_of_year-1))) 
+# y3 <- etp_day_av %>% mutate(Date = ymd("2013-01-01 UTC") %m+% days(as.integer(day_of_year-1)))
+# y4 <- etp_day_av %>% mutate(Date = ymd("2014-01-01 UTC") %m+% days(as.integer(day_of_year-1)))
+# 
+# etp_day_av.hist <- NULL
+# etp_day_av.hist <- rbind(y1,y2,y3,y4)
+# 
+# summary(etp_day_av.hist)
 
 ```
-
-
-
 
 
 ```{r,fig.width=12, fig.height=8, warning=FALSE}
-
-
 
 # maxt
 g1 <- weather_trial %>%
@@ -243,29 +259,30 @@ g3 <- weather_trial %>%
    ylab(expression(Daily~solar~radiation~~"(MJ "*m^"-2"*")")) +
    theme(text = element_text(size=fontSize))
 
-# FIXME: rain and ET should be all per month no per day
 # rain 
 #weather_trial$month <- with(weather_trial, strptime(paste(year, day), format="%Y %j")$mon+1)
 rain.month.hyst <- weather_day.hist %>% 
   mutate(year=year(Date)) %>%
   group_by(month, year)  %>%
-  summarise(rain= sum(rain) , date = mean(Date))
+  summarise(rain= sum(rain) , date = mean(Date), ep = sum(ep))
 
 g4 <- weather_trial %>%
   group_by(month,year) %>%
-  summarise(rain= sum(rain) , date = mean(Date)) %>%
+  summarise(rain= sum(rain) , date = mean(Date), ep=sum(ep)) %>%
   # ungroup() +
   # group_by(month,year) %>%
   # select(month,year, rain) %>%
 #  summarise(rainMean = mean(rain), rainSd = sd(rain)/2) %>%
   ggplot(aes(x=date, y=rain)) + 
-   geom_bar(stat ='identity', fill="white", colour="black") +  
+  geom_bar(stat ='identity', fill="white", colour="black") +  
   # geom_line(data=rain.month.hyst, 
   #           aes(x=date, y=rain), colour="black") +
     # geom_line(data=weather_day.hist, 
     #         aes(x=Date, y=rain*30.5), colour="blue", alpha=0.3) +
-      geom_line(data=etp_day_av.hist, 
-            aes(x=Date, y=eo*30.5), colour="black", alpha=0.3, linetype=2) +
+      # geom_line(data=rain.month.hyst, 
+   geom_line(data=rain.month.hyst, aes(x=date, y=ep), colour="black", alpha=0.3, linetype=2) +
+   geom_line(data=rain.month.hyst, aes(x=date, y=rain), colour="black", linetype=1) +
+   geom_point(aes(x=date, y=ep), colour= "darkblue", alpha=0.3) +
  # theme_bw() +
   xlab("Date") + 
   ylab("Monthly rainfall and ET (mm)") +
@@ -276,8 +293,8 @@ g4 <- weather_trial %>%
 
 
 g <- arrangeGrob(g1, g2, g3, g4, nrow=2)
-
-etp_day_av.hist
+g
+#etp_day_av.hist
 
 # Save
  ggsave(file="Fig_Weather.tiff", dpi = 300, path=saveDir, g)
