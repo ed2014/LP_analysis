@@ -11,14 +11,16 @@ head(info,30)
 g <- info %>%
   tidyr::gather("rate", "kl_Multiplier",X0.01:X0.0005) %>%
   mutate(rate=factor(gsub('X','-',rate))) %>%
-  ggplot(aes(x= SoilDepth, y=kl_Multiplier, colour=factor(rate) )) +
+  filter(SoilDepth<=2100) %>%
+  ggplot(aes(x= SoilDepth/10*-1, y=kl_Multiplier, colour=factor(rate) )) +
   geom_line() +
   geom_point() +
   ylab("Surface kl multiplier (fractional)") +
-  xlab("Depth in soil profile (mm)")+
+  xlab("Depth in soil profile (cm)")+
   theme(text = element_text(size=15))+ 
  # theme(legend.title=element_blank())+
-  labs(colour=expression(lambda["kl"]))
+  labs(colour=expression(lambda["kl"])) +
+  coord_flip()
 
 g
 
