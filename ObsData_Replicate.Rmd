@@ -131,7 +131,7 @@ g <- repVar %>%
 #  geom_line(data=repWork, aes(x=Date, y=CI95_up), linetype=22, colour="darkgrey") +
   facet_grid(Depth~Irrigation) + 
  # ylab("Volumetric soil moisture (mm)") +
-  labs(y=expression("Volumetric soil moisture "~(cm^{3}~cm^{-3})))+
+  labs(y=expression("Soil volumetric water content  "~(cm^{3}~cm^{-3})))+
   theme(text = element_text(size=15)) +
     labs(colour="Perennial crop type") + theme(legend.position="top")+
   geom_vline(xintercept = as.numeric(as.Date(ymd(estDate))), linetype=2) 
