@@ -12,6 +12,7 @@ output:
 - Compare data with APSIMx-SLURP model estimates
 - Field data cleaned/prepared and APSIM-X modelling by Hamish Brown (Hamish.Brown@plantandfood.co.nz)
 - Combined data (sims x obs) and kl analysis by Edmar Teixeira (Edmar.Teixeira@plantandfood.co.nz)
+- Statistical methodologies by Esther Meekeen (Esther.Meenken@agresearch.co.nz)
 
 ```{r LoadLibs, echo=FALSE, include=FALSE}
 
@@ -644,7 +645,7 @@ g <- simsWithBestFitForDry  %>%
   scale_shape(solid = FALSE) + 
   geom_vline(xintercept = as.numeric(simsWithBestFitForDry$Date[estLoc]),linetype = 2, colour="black") +
   xlab("Growth season") +
-   labs(y=expression("Volumetric soil moisture "~(cm^{3}~cm^{-3})))+
+   labs(y=expression("Soil volumetric water content "~(cm^{3}~cm^{-3})))+
   theme(text = element_text(size=8))  + 
   theme_bw() + 
   theme(strip.background = element_blank()) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
